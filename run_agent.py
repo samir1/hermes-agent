@@ -37,7 +37,10 @@ import time
 import threading
 from types import SimpleNamespace
 import uuid
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from agent.rate_limit_tracker import RateLimitState
 from openai import OpenAI
 import fire
 from datetime import datetime
