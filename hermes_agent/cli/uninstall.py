@@ -11,9 +11,9 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from hermes_constants import get_hermes_home
+from hermes_agent.constants import get_hermes_home
 
-from hermes_cli.colors import Colors, color
+from hermes_agent.cli.ui.colors import Colors, color
 
 def log_info(msg: str):
     print(f"{color('→', Colors.CYAN)} {msg}")
@@ -108,7 +108,7 @@ def remove_wrapper_script():
             try:
                 # Check if it's our wrapper (contains hermes_cli reference)
                 content = wrapper.read_text()
-                if 'hermes_cli' in content or 'hermes-agent' in content:
+                if 'hermes_agent.cli' in content or 'hermes-agent' in content:
                     wrapper.unlink()
                     removed.append(wrapper)
             except Exception as e:
@@ -132,7 +132,7 @@ def uninstall_gateway_service():
 
     # 1. Kill any standalone gateway processes (all platforms, including Termux)
     try:
-        from hermes_cli.gateway import kill_gateway_processes, find_gateway_pids
+        from hermes_agent.cli.gateway import kill_gateway_processes, find_gateway_pids
         pids = find_gateway_pids()
         if pids:
             killed = kill_gateway_processes()
@@ -153,7 +153,7 @@ def uninstall_gateway_service():
     # 2. Linux: uninstall systemd services (both user and system scopes)
     if system == "Linux":
         try:
-            from hermes_cli.gateway import (
+            from hermes_agent.cli.gateway import (
                 get_systemd_unit_path,
                 get_service_name,
                 _systemctl_cmd,
@@ -190,7 +190,7 @@ def uninstall_gateway_service():
     # 3. macOS: uninstall launchd plist
     elif system == "Darwin":
         try:
-            from hermes_cli.gateway import get_launchd_plist_path
+            from hermes_agent.cli.gateway import get_launchd_plist_path
             plist_path = get_launchd_plist_path()
             if plist_path.exists():
                 subprocess.run(["launchctl", "unload", str(plist_path)],
@@ -207,7 +207,7 @@ def uninstall_gateway_service():
 def _is_default_hermes_home(hermes_home: Path) -> bool:
     """Return True when ``hermes_home`` points at the default (non-profile) root."""
     try:
-        from hermes_constants import get_default_hermes_root
+        from hermes_agent.constants import get_default_hermes_root
         return hermes_home.resolve() == get_default_hermes_root().resolve()
     except Exception:
         return False
@@ -218,7 +218,7 @@ def _discover_named_profiles():
     if profile support is unavailable or nothing is installed beyond the
     default root."""
     try:
-        from hermes_cli.profiles import list_profiles
+        from hermes_agent.cli.profiles import list_profiles
     except Exception:
         return []
     try:
@@ -243,9 +243,9 @@ def _uninstall_profile(profile) -> None:
     log_info(f"Uninstalling profile '{name}'...")
 
     # 1. Stop and remove this profile's gateway service.
-    #    Use `python -m hermes_cli.main` so we don't depend on a `hermes`
+    #    Use `python -m hermes_agent.cli.main` so we don't depend on a `hermes`
     #    wrapper that may be half-removed mid-uninstall.
-    hermes_invocation = [_sys.executable, "-m", "hermes_cli.main", "--profile", name]
+    hermes_invocation = [_sys.executable, "-m", "hermes_agent.cli.main", "--profile", name]
     for subcmd in ("stop", "uninstall"):
         try:
             subprocess.run(

@@ -15,7 +15,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from gateway.platforms.base import SendResult
+from hermes_agent.gateway.platforms.base import SendResult
 from tests.e2e.conftest import make_event, send_and_capture
 
 

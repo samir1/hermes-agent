@@ -9,8 +9,8 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from tools.environments.base import BaseEnvironment, _popen_bash
-from tools.environments.file_sync import (
+from hermes_agent.backends.base import BaseEnvironment, _popen_bash
+from hermes_agent.backends.file_sync import (
     FileSyncManager,
     iter_sync_files,
     quoted_mkdir_command,

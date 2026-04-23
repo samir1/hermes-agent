@@ -95,8 +95,8 @@ except ImportError:
 FEISHU_WEBSOCKET_AVAILABLE = websockets is not None
 FEISHU_WEBHOOK_AVAILABLE = aiohttp is not None
 
-from gateway.config import Platform, PlatformConfig
-from gateway.platforms.base import (
+from hermes_agent.gateway.config import Platform, PlatformConfig
+from hermes_agent.gateway.platforms.base import (
     BasePlatformAdapter,
     MessageEvent,
     MessageType,
@@ -108,8 +108,8 @@ from gateway.platforms.base import (
     cache_audio_from_bytes,
     cache_image_from_bytes,
 )
-from gateway.status import acquire_scoped_lock, release_scoped_lock
-from hermes_constants import get_hermes_home
+from hermes_agent.gateway.status import acquire_scoped_lock, release_scoped_lock
+from hermes_agent.constants import get_hermes_home
 
 logger = logging.getLogger(__name__)
 
@@ -414,7 +414,7 @@ def _strip_markdown_to_plain_text(text: str) -> str:
     Feishu-specific patterns (blockquotes, strikethrough, underline tags,
     horizontal rules, \\r\\n normalisation).
     """
-    from gateway.platforms.helpers import strip_markdown
+    from hermes_agent.gateway.platforms.helpers import strip_markdown
     plain = text.replace("\r\n", "\n")
     plain = _MARKDOWN_LINK_RE.sub(lambda m: f"{m.group(1)} ({m.group(2).strip()})", plain)
     plain = re.sub(r"^>\s?", "", plain, flags=re.MULTILINE)
@@ -2039,7 +2039,7 @@ class FeishuAdapter(BasePlatformAdapter):
         logging, and reaction.  Scheduling follows the same
         ``run_coroutine_threadsafe`` pattern used by ``_on_message_event``.
         """
-        from gateway.platforms.feishu_comment import handle_drive_comment_event
+        from hermes_agent.gateway.platforms.feishu_comment import handle_drive_comment_event
 
         loop = self._loop
         if not self._loop_accepts_callbacks(loop):
@@ -2151,7 +2151,7 @@ class FeishuAdapter(BasePlatformAdapter):
             logger.debug("[Feishu] Approval %s already resolved or unknown", approval_id)
             return
         try:
-            from tools.approval import resolve_gateway_approval
+            from hermes_agent.tools.security.approval import resolve_gateway_approval
             count = resolve_gateway_approval(state["session_key"], choice)
             logger.info(
                 "Feishu button resolved %d approval(s) for session %s (choice=%s, user=%s)",
@@ -2542,7 +2542,7 @@ class FeishuAdapter(BasePlatformAdapter):
         )
 
     def _media_batch_key(self, event: MessageEvent) -> str:
-        from gateway.session import build_session_key
+        from hermes_agent.gateway.session import build_session_key
 
         session_key = build_session_key(
             event.source,
@@ -2619,7 +2619,7 @@ class FeishuAdapter(BasePlatformAdapter):
         default_ext: str,
         preferred_name: str,
     ) -> tuple[str, str]:
-        from tools.url_safety import is_safe_url
+        from hermes_agent.tools.security.urls import is_safe_url
         if not is_safe_url(file_url):
             raise ValueError(f"Blocked unsafe URL (SSRF protection): {file_url[:80]}")
 
@@ -2822,7 +2822,7 @@ class FeishuAdapter(BasePlatformAdapter):
 
     def _text_batch_key(self, event: MessageEvent) -> str:
         """Return the session-scoped key used for Feishu text aggregation."""
-        from gateway.session import build_session_key
+        from hermes_agent.gateway.session import build_session_key
 
         return build_session_key(
             event.source,

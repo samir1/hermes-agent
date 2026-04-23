@@ -13,14 +13,14 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
 
-from hermes_constants import get_hermes_home
-from hermes_cli.env_loader import load_hermes_dotenv
+from hermes_agent.constants import get_hermes_home
+from hermes_agent.cli.env_loader import load_hermes_dotenv
 
 _hermes_home = get_hermes_home()
 load_hermes_dotenv(hermes_home=_hermes_home, project_env=Path(__file__).parent.parent / ".env")
 
 try:
-    from hermes_cli.banner import prefetch_update_check
+    from hermes_agent.cli.ui.banner import prefetch_update_check
     prefetch_update_check()
 except Exception:
     pass
@@ -49,7 +49,7 @@ _SLASH_WORKER_TIMEOUT_S = max(5.0, float(os.environ.get("HERMES_TUI_SLASH_TIMEOU
 # response writes are safe.
 _LONG_HANDLERS = frozenset(
     {
-        "cli.exec",
+        "hermes_agent.cli.repl.exec",
         "session.branch",
         "session.resume",
         "shell.exec",
@@ -150,7 +150,7 @@ atexit.register(lambda: [
 def _get_db():
     global _db
     if _db is None:
-        from hermes_state import SessionDB
+        from hermes_agent.state import SessionDB
         _db = SessionDB()
     return _db
 
@@ -325,7 +325,7 @@ def _save_cfg(cfg: dict):
 
 def _set_session_context(session_key: str) -> list:
     try:
-        from gateway.session_context import set_session_vars
+        from hermes_agent.gateway.session_context import set_session_vars
         return set_session_vars(session_key=session_key)
     except Exception:
         return []
@@ -335,7 +335,7 @@ def _clear_session_context(tokens: list) -> None:
     if not tokens:
         return
     try:
-        from gateway.session_context import clear_session_vars
+        from hermes_agent.gateway.session_context import clear_session_vars
         clear_session_vars(tokens)
     except Exception:
         pass
@@ -380,7 +380,7 @@ def _clear_pending(sid: str | None = None) -> None:
 
 def resolve_skin() -> dict:
     try:
-        from hermes_cli.skin_engine import init_skin_from_config, get_active_skin
+        from hermes_agent.cli.ui.skin_engine import init_skin_from_config, get_active_skin
         init_skin_from_config(_load_cfg())
         skin = get_active_skin()
         return {
@@ -421,7 +421,7 @@ def _write_config_key(key_path: str, value):
 
 
 def _load_reasoning_config() -> dict | None:
-    from hermes_constants import parse_reasoning_effort
+    from hermes_agent.constants import parse_reasoning_effort
 
     effort = str(_load_cfg().get("agent", {}).get("reasoning_effort", "") or "").strip()
     return parse_reasoning_effort(effort)
@@ -452,8 +452,8 @@ def _load_tool_progress_mode() -> str:
 
 def _load_enabled_toolsets() -> list[str] | None:
     try:
-        from hermes_cli.config import load_config
-        from hermes_cli.tools_config import _get_platform_tools
+        from hermes_agent.cli.config import load_config
+        from hermes_agent.cli.tools_config import _get_platform_tools
 
         enabled = sorted(_get_platform_tools(load_config(), "cli", include_default_mcp_servers=False))
         return enabled or None
@@ -483,7 +483,7 @@ def _restart_slash_worker(session: dict):
 
 
 def _persist_model_switch(result) -> None:
-    from hermes_cli.config import save_config
+    from hermes_agent.cli.config import save_config
 
     cfg = _load_cfg()
     model_cfg = cfg.get("model")
@@ -501,8 +501,8 @@ def _persist_model_switch(result) -> None:
 
 
 def _apply_model_switch(sid: str, session: dict, raw_input: str) -> dict:
-    from hermes_cli.model_switch import parse_model_flags, switch_model
-    from hermes_cli.runtime_provider import resolve_runtime_provider
+    from hermes_agent.cli.models.switch import parse_model_flags, switch_model
+    from hermes_agent.cli.runtime_provider import resolve_runtime_provider
 
     model_input, explicit_provider, persist_global = parse_model_flags(raw_input)
     if not model_input:
@@ -557,7 +557,7 @@ def _apply_model_switch(sid: str, session: dict, raw_input: str) -> dict:
 
 
 def _compress_session_history(session: dict, focus_topic: str | None = None) -> tuple[int, dict]:
-    from agent.model_metadata import estimate_messages_tokens_rough
+    from hermes_agent.providers.metadata import estimate_messages_tokens_rough
 
     agent = session["agent"]
     history = list(session.get("history", []))
@@ -598,7 +598,7 @@ def _get_usage(agent) -> dict:
             usage["context_percent"] = max(0, min(100, round(ctx_used / ctx_max * 100)))
         usage["compressions"] = getattr(comp, "compression_count", 0) or 0
     try:
-        from agent.usage_pricing import CanonicalUsage, estimate_usage_cost
+        from hermes_agent.providers.pricing import CanonicalUsage, estimate_usage_cost
         cost = estimate_usage_cost(
             usage["model"],
             CanonicalUsage(
@@ -643,31 +643,31 @@ def _session_info(agent) -> dict:
         "usage": _get_usage(agent),
     }
     try:
-        from hermes_cli import __version__, __release_date__
+        from hermes_agent.cli import __version__, __release_date__
         info["version"] = __version__
         info["release_date"] = __release_date__
     except Exception:
         pass
     try:
-        from model_tools import get_toolset_for_tool
+        from hermes_agent.tools.dispatch import get_toolset_for_tool
         for t in getattr(agent, "tools", []) or []:
             name = t["function"]["name"]
             info["tools"].setdefault(get_toolset_for_tool(name) or "other", []).append(name)
     except Exception:
         pass
     try:
-        from hermes_cli.banner import get_available_skills
+        from hermes_agent.cli.ui.banner import get_available_skills
         info["skills"] = get_available_skills()
     except Exception:
         pass
     try:
-        from tools.mcp_tool import get_mcp_status
+        from hermes_agent.tools.mcp.tool import get_mcp_status
         info["mcp_servers"] = get_mcp_status()
     except Exception:
         info["mcp_servers"] = []
     try:
-        from hermes_cli.banner import get_update_result
-        from hermes_cli.config import recommended_update_command
+        from hermes_agent.cli.ui.banner import get_update_result
+        from hermes_agent.cli.config import recommended_update_command
         info["update_behind"] = get_update_result(timeout=0.5)
         info["update_command"] = recommended_update_command()
     except Exception:
@@ -677,7 +677,7 @@ def _session_info(agent) -> dict:
 
 def _tool_ctx(name: str, args: dict) -> str:
     try:
-        from agent.display import build_tool_preview
+        from hermes_agent.agent.display import build_tool_preview
         return build_tool_preview(name, args, max_len=80) or ""
     except Exception:
         return ""
@@ -730,7 +730,7 @@ def _on_tool_start(sid: str, tool_call_id: str, name: str, args: dict):
     session = _sessions.get(sid)
     if session is not None:
         try:
-            from agent.display import capture_local_edit_snapshot
+            from hermes_agent.agent.display import capture_local_edit_snapshot
 
             snapshot = capture_local_edit_snapshot(name, args)
             if snapshot is not None:
@@ -757,7 +757,7 @@ def _on_tool_complete(sid: str, tool_call_id: str, name: str, args: dict, result
     if summary:
         payload["summary"] = summary
     try:
-        from agent.display import render_edit_diff_with_delta
+        from hermes_agent.agent.display import render_edit_diff_with_delta
 
         rendered: list[str] = []
         if render_edit_diff_with_delta(name, result, function_args=args, snapshot=snapshot, print_fn=rendered.append):
@@ -822,8 +822,8 @@ def _agent_cbs(sid: str) -> dict:
 
 
 def _wire_callbacks(sid: str):
-    from tools.terminal_tool import set_sudo_password_callback
-    from tools.skills_tool import set_secret_capture_callback
+    from hermes_agent.tools.terminal import set_sudo_password_callback
+    from hermes_agent.tools.skills.tool import set_secret_capture_callback
 
     set_sudo_password_callback(lambda: _block("sudo.request", sid, {}, timeout=120))
 
@@ -834,7 +834,7 @@ def _wire_callbacks(sid: str):
         val = _block("secret.request", sid, pl)
         if not val:
             return {"success": True, "stored_as": env_var, "validated": False, "skipped": True, "message": "skipped"}
-        from hermes_cli.config import save_env_value_secure
+        from hermes_agent.cli.config import save_env_value_secure
         return {**save_env_value_secure(env_var, val), "skipped": False, "message": "ok"}
 
     set_secret_capture_callback(secret_cb)
@@ -846,12 +846,12 @@ def _resolve_personality_prompt(cfg: dict) -> str:
     if not name or name in ("default", "none", "neutral"):
         return ""
     try:
-        from cli import load_cli_config
+        from hermes_agent.cli.repl import load_cli_config
 
         personalities = load_cli_config().get("agent", {}).get("personalities", {})
     except Exception:
         try:
-            from hermes_cli.config import load_config as _load_full_cfg
+            from hermes_agent.cli.config import load_config as _load_full_cfg
 
             personalities = _load_full_cfg().get("agent", {}).get("personalities", {})
         except Exception:
@@ -875,12 +875,12 @@ def _render_personality_prompt(value) -> str:
 
 def _available_personalities(cfg: dict | None = None) -> dict:
     try:
-        from cli import load_cli_config
+        from hermes_agent.cli.repl import load_cli_config
 
         return load_cli_config().get("agent", {}).get("personalities", {}) or {}
     except Exception:
         try:
-            from hermes_cli.config import load_config as _load_full_cfg
+            from hermes_agent.cli.config import load_config as _load_full_cfg
 
             return _load_full_cfg().get("agent", {}).get("personalities", {}) or {}
         except Exception:
@@ -982,7 +982,7 @@ def _reset_session_agent(sid: str, session: dict) -> dict:
 
 
 def _make_agent(sid: str, key: str, session_id: str | None = None):
-    from run_agent import AIAgent
+    from hermes_agent.agent.loop import AIAgent
     cfg = _load_cfg()
     system_prompt = cfg.get("agent", {}).get("system_prompt", "") or ""
     if not system_prompt:
@@ -1024,7 +1024,7 @@ def _init_session(sid: str, key: str, agent, history: list, cols: int = 80):
         # Defer hard-failure to slash.exec; chat still works without slash worker.
         _sessions[sid]["slash_worker"] = None
     try:
-        from tools.approval import register_gateway_notify, load_permanent_allowlist
+        from hermes_agent.tools.security.approval import register_gateway_notify, load_permanent_allowlist
         register_gateway_notify(key, lambda data: _emit("approval.request", sid, data))
         load_permanent_allowlist()
     except Exception:
@@ -1055,7 +1055,7 @@ def _resolve_checkpoint_hash(mgr, cwd: str, ref: str) -> str:
 def _enrich_with_attached_images(user_text: str, image_paths: list[str]) -> str:
     """Pre-analyze attached images via vision and prepend descriptions to user text."""
     import asyncio, json as _json
-    from tools.vision_tools import vision_analyze_tool
+    from hermes_agent.tools.vision import vision_analyze_tool
 
     prompt = (
         "Describe everything visible in this image in thorough detail. "
@@ -1185,7 +1185,7 @@ def _(rid, params: dict) -> dict:
                 pass
 
             try:
-                from tools.approval import register_gateway_notify, load_permanent_allowlist
+                from hermes_agent.tools.security.approval import register_gateway_notify, load_permanent_allowlist
                 register_gateway_notify(key, lambda data: _emit("approval.request", sid, data))
                 notify_registered = True
                 load_permanent_allowlist()
@@ -1216,7 +1216,7 @@ def _(rid, params: dict) -> dict:
                         pass
                 if notify_registered:
                     try:
-                        from tools.approval import unregister_gateway_notify
+                        from hermes_agent.tools.security.approval import unregister_gateway_notify
                         unregister_gateway_notify(key)
                     except Exception:
                         pass
@@ -1415,7 +1415,7 @@ def _(rid, params: dict) -> dict:
     if not session:
         return _ok(rid, {"closed": False})
     try:
-        from tools.approval import unregister_gateway_notify
+        from hermes_agent.tools.security.approval import unregister_gateway_notify
 
         unregister_gateway_notify(session["session_key"])
     except Exception:
@@ -1480,7 +1480,7 @@ def _(rid, params: dict) -> dict:
     # process, silently resolving them to empty strings.
     _clear_pending(params.get("session_id", ""))
     try:
-        from tools.approval import resolve_gateway_approval
+        from hermes_agent.tools.security.approval import resolve_gateway_approval
         resolve_gateway_approval(session["session_key"], "deny", resolve_all=True)
     except Exception:
         pass
@@ -1544,7 +1544,7 @@ def _(rid, params: dict) -> dict:
         approval_token = None
         session_tokens = []
         try:
-            from tools.approval import reset_current_session_key, set_current_session_key
+            from hermes_agent.tools.security.approval import reset_current_session_key, set_current_session_key
             approval_token = set_current_session_key(session["session_key"])
             session_tokens = _set_session_context(session["session_key"])
             cols = session.get("cols", 80)
@@ -1552,8 +1552,8 @@ def _(rid, params: dict) -> dict:
             prompt = text
 
             if isinstance(prompt, str) and "@" in prompt:
-                from agent.context_references import preprocess_context_references
-                from agent.model_metadata import get_model_context_length
+                from hermes_agent.agent.context.references import preprocess_context_references
+                from hermes_agent.providers.metadata import get_model_context_length
 
                 ctx_len = get_model_context_length(
                     getattr(agent, "model", "") or _resolve_model(),
@@ -1652,7 +1652,7 @@ def _(rid, params: dict) -> dict:
     if err:
         return err
     try:
-        from hermes_cli.clipboard import has_clipboard_image, save_clipboard_image
+        from hermes_agent.cli.clipboard import has_clipboard_image, save_clipboard_image
     except Exception as e:
         return _err(rid, 5027, f"clipboard unavailable: {e}")
 
@@ -1688,7 +1688,7 @@ def _(rid, params: dict) -> dict:
     if not raw:
         return _err(rid, 4015, "path required")
     try:
-        from cli import _IMAGE_EXTENSIONS, _detect_file_drop, _resolve_attachment_path, _split_path_input
+        from hermes_agent.cli.repl import _IMAGE_EXTENSIONS, _detect_file_drop, _resolve_attachment_path, _split_path_input
 
         dropped = _detect_file_drop(raw)
         if dropped:
@@ -1723,7 +1723,7 @@ def _(rid, params: dict) -> dict:
     if err:
         return err
     try:
-        from cli import _detect_file_drop
+        from hermes_agent.cli.repl import _detect_file_drop
 
         raw = str(params.get("text", "") or "")
         dropped = _detect_file_drop(raw)
@@ -1775,7 +1775,7 @@ def _(rid, params: dict) -> dict:
     def run():
         session_tokens = _set_session_context(task_id)
         try:
-            from run_agent import AIAgent
+            from hermes_agent.agent.loop import AIAgent
             result = AIAgent(**_background_agent_kwargs(session["agent"], task_id)).run_conversation(
                 user_message=text,
                 task_id=task_id,
@@ -1804,7 +1804,7 @@ def _(rid, params: dict) -> dict:
     def run():
         session_tokens = _set_session_context(session["session_key"])
         try:
-            from run_agent import AIAgent
+            from hermes_agent.agent.loop import AIAgent
             result = AIAgent(model=_resolve_model(), quiet_mode=True, platform="tui",
                              max_iterations=8, enabled_toolsets=[]).run_conversation(text, conversation_history=snapshot)
             _emit("btw.complete", sid, {"text": result.get("final_response", str(result)) if isinstance(result, dict) else str(result)})
@@ -1848,7 +1848,7 @@ def _(rid, params: dict) -> dict:
     if err:
         return err
     try:
-        from tools.approval import resolve_gateway_approval
+        from hermes_agent.tools.security.approval import resolve_gateway_approval
         return _ok(rid, {"resolved": resolve_gateway_approval(
             session["session_key"], params.get("choice", "deny"), resolve_all=params.get("all", False))})
     except Exception as e:
@@ -1911,7 +1911,7 @@ def _(rid, params: dict) -> dict:
     if key == "yolo":
         try:
             if session:
-                from tools.approval import (
+                from hermes_agent.tools.security.approval import (
                     disable_session_yolo,
                     enable_session_yolo,
                     is_session_yolo_enabled,
@@ -1938,7 +1938,7 @@ def _(rid, params: dict) -> dict:
 
     if key == "reasoning":
         try:
-            from hermes_constants import parse_reasoning_effort
+            from hermes_agent.constants import parse_reasoning_effort
 
             arg = str(value or "").strip().lower()
             if arg in ("show", "on"):
@@ -1955,7 +1955,7 @@ def _(rid, params: dict) -> dict:
             parsed = parse_reasoning_effort(arg)
             if parsed is None:
                 return _err(rid, 4002, f"unknown reasoning value: {value}")
-            _write_config_key("agent.reasoning_effort", arg)
+            _write_config_key("hermes_agent.agent.reasoning_effort", arg)
             if session and session.get("agent") is not None:
                 session["agent"].reasoning_config = parsed
             return _ok(rid, {"key": key, "value": arg})
@@ -2013,7 +2013,7 @@ def _(rid, params: dict) -> dict:
                 sid_key = params.get("session_id", "")
                 pname, new_prompt = _validate_personality(str(value or ""), cfg)
                 _write_config_key("display.personality", pname)
-                _write_config_key("agent.system_prompt", new_prompt)
+                _write_config_key("hermes_agent.agent.system_prompt", new_prompt)
                 nv = str(value or "default")
                 history_reset, info = _apply_personality_to_session(sid_key, session, new_prompt)
             else:
@@ -2038,7 +2038,7 @@ def _(rid, params: dict) -> dict:
     key = params.get("key", "")
     if key == "provider":
         try:
-            from hermes_cli.models import list_available_providers, normalize_provider
+            from hermes_agent.cli.models.models import list_available_providers, normalize_provider
             model = _resolve_model()
             parts = model.split("/", 1)
             return _ok(rid, {"model": model, "provider": normalize_provider(parts[0]) if len(parts) > 1 else "unknown",
@@ -2046,7 +2046,7 @@ def _(rid, params: dict) -> dict:
         except Exception as e:
             return _err(rid, 5013, str(e))
     if key == "profile":
-        from hermes_constants import display_hermes_home
+        from hermes_agent.constants import display_hermes_home
         return _ok(rid, {"home": str(_hermes_home), "display": display_hermes_home()})
     if key == "full":
         return _ok(rid, {"config": _load_cfg()})
@@ -2094,7 +2094,7 @@ def _(rid, params: dict) -> dict:
 @method("setup.status")
 def _(rid, params: dict) -> dict:
     try:
-        from hermes_cli.main import _has_any_provider_configured
+        from hermes_agent.cli.main import _has_any_provider_configured
         return _ok(rid, {"provider_configured": bool(_has_any_provider_configured())})
     except Exception as e:
         return _err(rid, 5016, str(e))
@@ -2105,7 +2105,7 @@ def _(rid, params: dict) -> dict:
 @method("process.stop")
 def _(rid, params: dict) -> dict:
     try:
-        from tools.process_registry import process_registry
+        from hermes_agent.tools.process_registry import process_registry
         return _ok(rid, {"killed": process_registry.kill_all()})
     except Exception as e:
         return _err(rid, 5010, str(e))
@@ -2115,7 +2115,7 @@ def _(rid, params: dict) -> dict:
 def _(rid, params: dict) -> dict:
     session = _sessions.get(params.get("session_id", ""))
     try:
-        from tools.mcp_tool import shutdown_mcp_servers, discover_mcp_tools
+        from hermes_agent.tools.mcp.tool import shutdown_mcp_servers, discover_mcp_tools
         shutdown_mcp_servers()
         discover_mcp_tools()
         if session:
@@ -2149,7 +2149,7 @@ _PENDING_INPUT_COMMANDS: frozenset[str] = frozenset({
 def _(rid, params: dict) -> dict:
     """Registry-backed slash metadata for the TUI — categorized, no aliases."""
     try:
-        from hermes_cli.commands import COMMAND_REGISTRY, SUBCOMMANDS, _build_description
+        from hermes_agent.cli.commands import COMMAND_REGISTRY, SUBCOMMANDS, _build_description
 
         all_pairs: list[list[str]] = []
         canon: dict[str, str] = {}
@@ -2212,7 +2212,7 @@ def _(rid, params: dict) -> dict:
 
         skill_count = 0
         try:
-            from agent.skill_commands import scan_skill_commands
+            from hermes_agent.agent.skill_commands import scan_skill_commands
             for k, info in sorted(scan_skill_commands().items()):
                 d = str(info.get("description", "Skill"))
                 all_pairs.append([k, d[:120] + ("…" if len(d) > 120 else "")])
@@ -2252,9 +2252,9 @@ def _cli_exec_blocked(argv: list[str]) -> str | None:
     return None
 
 
-@method("cli.exec")
+@method("hermes_agent.cli.repl.exec")
 def _(rid, params: dict) -> dict:
-    """Run `python -m hermes_cli.main` with argv; capture stdout/stderr (non-interactive only)."""
+    """Run `python -m hermes_agent.cli.main` with argv; capture stdout/stderr (non-interactive only)."""
     argv = params.get("argv", [])
     if not isinstance(argv, list) or not all(isinstance(x, str) for x in argv):
         return _err(rid, 4003, "argv must be list[str]")
@@ -2263,7 +2263,7 @@ def _(rid, params: dict) -> dict:
         return _ok(rid, {"blocked": True, "hint": hint, "code": -1, "output": ""})
     try:
         r = subprocess.run(
-            [sys.executable, "-m", "hermes_cli.main", *argv],
+            [sys.executable, "-m", "hermes_agent.cli.main", *argv],
             capture_output=True,
             text=True,
             timeout=min(int(params.get("timeout", 240)), 600),
@@ -2282,7 +2282,7 @@ def _(rid, params: dict) -> dict:
 @method("command.resolve")
 def _(rid, params: dict) -> dict:
     try:
-        from hermes_cli.commands import resolve_command
+        from hermes_agent.cli.commands import resolve_command
         r = resolve_command(params.get("name", ""))
         if r:
             return _ok(rid, {"canonical": r.name, "description": r.description, "category": r.category})
@@ -2293,7 +2293,7 @@ def _(rid, params: dict) -> dict:
 
 def _resolve_name(name: str) -> str:
     try:
-        from hermes_cli.commands import resolve_command
+        from hermes_agent.cli.commands import resolve_command
         r = resolve_command(name)
         return r.name if r else name
     except Exception:
@@ -2321,7 +2321,7 @@ def _(rid, params: dict) -> dict:
             return _ok(rid, {"type": "alias", "target": qc.get("target", "")})
 
     try:
-        from hermes_cli.plugins import get_plugin_command_handler
+        from hermes_agent.cli.plugins import get_plugin_command_handler
         handler = get_plugin_command_handler(name)
         if handler:
             return _ok(rid, {"type": "plugin", "output": str(handler(arg) or "")})
@@ -2329,7 +2329,7 @@ def _(rid, params: dict) -> dict:
         pass
 
     try:
-        from agent.skill_commands import scan_skill_commands, build_skill_invocation_message
+        from hermes_agent.agent.skill_commands import scan_skill_commands, build_skill_invocation_message
         cmds = scan_skill_commands()
         key = f"/{name}"
         if key in cmds:
@@ -2394,7 +2394,7 @@ def _(rid, params: dict) -> dict:
 
     if name == "plan":
         try:
-            from agent.skill_commands import build_skill_invocation_message as _bsim, build_plan_path
+            from hermes_agent.agent.skill_commands import build_skill_invocation_message as _bsim, build_plan_path
             user_instruction = arg or ""
             plan_path = build_plan_path(user_instruction)
             msg = _bsim(
@@ -2530,11 +2530,11 @@ def _(rid, params: dict) -> dict:
         return _ok(rid, {"items": []})
 
     try:
-        from hermes_cli.commands import SlashCommandCompleter
+        from hermes_agent.cli.commands import SlashCommandCompleter
         from prompt_toolkit.document import Document
         from prompt_toolkit.formatted_text import to_plain_text
 
-        from agent.skill_commands import get_skill_commands
+        from hermes_agent.agent.skill_commands import get_skill_commands
 
         completer = SlashCommandCompleter(skill_commands_provider=lambda: get_skill_commands())
         doc = Document(text, len(text))
@@ -2559,7 +2559,7 @@ def _(rid, params: dict) -> dict:
 @method("model.options")
 def _(rid, params: dict) -> dict:
     try:
-        from hermes_cli.model_switch import list_authenticated_providers
+        from hermes_agent.cli.models.switch import list_authenticated_providers
 
         session = _sessions.get(params.get("session_id", ""))
         agent = session.get("agent") if session else None
@@ -2630,7 +2630,7 @@ def _mirror_slash_side_effects(sid: str, session: dict, command: str) -> str:
         elif name == "reload-mcp" and agent and hasattr(agent, "reload_mcp_tools"):
             agent.reload_mcp_tools()
         elif name == "stop":
-            from tools.process_registry import process_registry
+            from hermes_agent.tools.process_registry import process_registry
             process_registry.kill_all()
     except Exception as e:
         return f"live session sync failed: {e}"
@@ -2660,7 +2660,7 @@ def _(rid, params: dict) -> dict:
         return _err(rid, 4018, f"pending-input command: use command.dispatch for /{_cmd_base}")
 
     try:
-        from agent.skill_commands import get_skill_commands
+        from hermes_agent.agent.skill_commands import get_skill_commands
         _cmd_key = f"/{_cmd_base}"
         if _cmd_key in get_skill_commands():
             return _err(rid, 4018, f"skill command: use command.dispatch for {_cmd_key}")
@@ -2714,11 +2714,11 @@ def _(rid, params: dict) -> dict:
     action = params.get("action", "start")
     try:
         if action == "start":
-            from hermes_cli.voice import start_recording
+            from hermes_agent.cli.voice import start_recording
             start_recording()
             return _ok(rid, {"status": "recording"})
         if action == "stop":
-            from hermes_cli.voice import stop_and_transcribe
+            from hermes_agent.cli.voice import stop_and_transcribe
             return _ok(rid, {"text": stop_and_transcribe() or ""})
         return _err(rid, 4019, f"unknown voice action: {action}")
     except ImportError:
@@ -2733,7 +2733,7 @@ def _(rid, params: dict) -> dict:
     if not text:
         return _err(rid, 4020, "text required")
     try:
-        from hermes_cli.voice import speak_text
+        from hermes_agent.cli.voice import speak_text
         threading.Thread(target=speak_text, args=(text,), daemon=True).start()
         return _ok(rid, {"status": "speaking"})
     except ImportError:
@@ -2847,7 +2847,7 @@ def _(rid, params: dict) -> dict:
         try:
             import urllib.request
             from urllib.parse import urlparse
-            from tools.browser_tool import cleanup_all_browsers
+            from hermes_agent.tools.browser.tool import cleanup_all_browsers
 
             parsed = urlparse(url if "://" in url else f"http://{url}")
             if parsed.scheme not in {"http", "https", "ws", "wss"}:
@@ -2876,7 +2876,7 @@ def _(rid, params: dict) -> dict:
     if action == "disconnect":
         os.environ.pop("BROWSER_CDP_URL", None)
         try:
-            from tools.browser_tool import cleanup_all_browsers
+            from hermes_agent.tools.browser.tool import cleanup_all_browsers
             cleanup_all_browsers()
         except Exception:
             pass
@@ -2884,10 +2884,10 @@ def _(rid, params: dict) -> dict:
     return _err(rid, 4015, f"unknown action: {action}")
 
 
-@method("plugins.list")
+@method("hermes_agent.plugins.list")
 def _(rid, params: dict) -> dict:
     try:
-        from hermes_cli.plugins import get_plugin_manager
+        from hermes_agent.cli.plugins import get_plugin_manager
         return _ok(rid, {"plugins": [
             {"name": n, "version": getattr(i, "version", "?"), "enabled": getattr(i, "enabled", True)}
             for n, i in get_plugin_manager()._plugins.items()]})
@@ -2930,10 +2930,10 @@ def _(rid, params: dict) -> dict:
         return _err(rid, 5030, str(e))
 
 
-@method("tools.list")
+@method("hermes_agent.tools.list")
 def _(rid, params: dict) -> dict:
     try:
-        from toolsets import get_all_toolsets, get_toolset_info
+        from hermes_agent.tools.toolsets import get_all_toolsets, get_toolset_info
         session = _sessions.get(params.get("session_id", ""))
         enabled = set(getattr(session["agent"], "enabled_toolsets", []) or []) if session else set(_load_enabled_toolsets() or [])
 
@@ -2949,15 +2949,15 @@ def _(rid, params: dict) -> dict:
                 "enabled": name in enabled if enabled else True,
                 "tools": info["resolved_tools"],
             })
-        return _ok(rid, {"toolsets": items})
+        return _ok(rid, {"hermes_agent.tools.toolsets": items})
     except Exception as e:
         return _err(rid, 5031, str(e))
 
 
-@method("tools.show")
+@method("hermes_agent.tools.show")
 def _(rid, params: dict) -> dict:
     try:
-        from model_tools import get_toolset_for_tool, get_tool_definitions
+        from hermes_agent.tools.dispatch import get_toolset_for_tool, get_tool_definitions
 
         session = _sessions.get(params.get("session_id", ""))
         enabled = getattr(session["agent"], "enabled_toolsets", None) if session else _load_enabled_toolsets()
@@ -2982,7 +2982,7 @@ def _(rid, params: dict) -> dict:
         return _err(rid, 5034, str(e))
 
 
-@method("tools.configure")
+@method("hermes_agent.tools.configure")
 def _(rid, params: dict) -> dict:
     action = str(params.get("action", "") or "").strip().lower()
     targets = [str(name).strip() for name in params.get("names", []) or [] if str(name).strip()]
@@ -2992,8 +2992,8 @@ def _(rid, params: dict) -> dict:
         return _err(rid, 4018, "names required")
 
     try:
-        from hermes_cli.config import load_config, save_config
-        from hermes_cli.tools_config import (
+        from hermes_agent.cli.config import load_config, save_config
+        from hermes_agent.cli.tools_config import (
             CONFIGURABLE_TOOLSETS,
             _apply_mcp_change,
             _apply_toolset_change,
@@ -3034,10 +3034,10 @@ def _(rid, params: dict) -> dict:
         return _err(rid, 5035, str(e))
 
 
-@method("toolsets.list")
+@method("hermes_agent.tools.toolsets.list")
 def _(rid, params: dict) -> dict:
     try:
-        from toolsets import get_all_toolsets, get_toolset_info
+        from hermes_agent.tools.toolsets import get_all_toolsets, get_toolset_info
         session = _sessions.get(params.get("session_id", ""))
         enabled = set(getattr(session["agent"], "enabled_toolsets", []) or []) if session else set(_load_enabled_toolsets() or [])
 
@@ -3052,7 +3052,7 @@ def _(rid, params: dict) -> dict:
                 "tool_count": info["tool_count"],
                 "enabled": name in enabled if enabled else True,
             })
-        return _ok(rid, {"toolsets": items})
+        return _ok(rid, {"hermes_agent.tools.toolsets": items})
     except Exception as e:
         return _err(rid, 5032, str(e))
 
@@ -3060,7 +3060,7 @@ def _(rid, params: dict) -> dict:
 @method("agents.list")
 def _(rid, params: dict) -> dict:
     try:
-        from tools.process_registry import process_registry
+        from hermes_agent.tools.process_registry import process_registry
         procs = process_registry.list_sessions()
         return _ok(rid, {
             "processes": [{
@@ -3074,11 +3074,11 @@ def _(rid, params: dict) -> dict:
         return _err(rid, 5033, str(e))
 
 
-@method("cron.manage")
+@method("hermes_agent.cron.manage")
 def _(rid, params: dict) -> dict:
     action, jid = params.get("action", "list"), params.get("name", "")
     try:
-        from tools.cronjob_tools import cronjob
+        from hermes_agent.tools.cronjob import cronjob
         if action == "list":
             return _ok(rid, json.loads(cronjob(action="list")))
         if action == "add":
@@ -3096,24 +3096,24 @@ def _(rid, params: dict) -> dict:
     action, query = params.get("action", "list"), params.get("query", "")
     try:
         if action == "list":
-            from hermes_cli.banner import get_available_skills
+            from hermes_agent.cli.ui.banner import get_available_skills
             return _ok(rid, {"skills": get_available_skills()})
         if action == "search":
-            from tools.skills_hub import unified_search, GitHubAuth, create_source_router
+            from hermes_agent.tools.skills.hub import unified_search, GitHubAuth, create_source_router
             raw = unified_search(query, create_source_router(GitHubAuth()), source_filter="all", limit=20) or []
             return _ok(rid, {"results": [{"name": r.name, "description": r.description} for r in raw]})
         if action == "install":
-            from hermes_cli.skills_hub import do_install
+            from hermes_agent.cli.skills_hub import do_install
             class _Q:
                 def print(self, *a, **k): pass
             do_install(query, skip_confirm=True, console=_Q())
             return _ok(rid, {"installed": True, "name": query})
         if action == "browse":
-            from hermes_cli.skills_hub import browse_skills
+            from hermes_agent.cli.skills_hub import browse_skills
             pg = int(params.get("page", 0) or 0) or (int(query) if query.isdigit() else 1)
             return _ok(rid, browse_skills(page=pg, page_size=int(params.get("page_size", 20))))
         if action == "inspect":
-            from hermes_cli.skills_hub import inspect_skill
+            from hermes_agent.cli.skills_hub import inspect_skill
             return _ok(rid, {"info": inspect_skill(query) or {}})
         return _err(rid, 4017, f"unknown skills action: {action}")
     except Exception as e:
@@ -3128,7 +3128,7 @@ def _(rid, params: dict) -> dict:
     if not cmd:
         return _err(rid, 4004, "empty command")
     try:
-        from tools.approval import detect_dangerous_command
+        from hermes_agent.tools.security.approval import detect_dangerous_command
         is_dangerous, _, desc = detect_dangerous_command(cmd)
         if is_dangerous:
             return _err(rid, 4005, f"blocked: {desc}. Use the agent for dangerous commands.")

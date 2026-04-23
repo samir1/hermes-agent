@@ -35,9 +35,9 @@ except ImportError:
     httpx = None  # type: ignore[assignment]
     HTTPX_AVAILABLE = False
 
-from gateway.config import Platform, PlatformConfig
-from gateway.platforms.base import BasePlatformAdapter, MessageEvent, MessageType, SendResult
-from gateway.platforms.wecom_crypto import WXBizMsgCrypt, WeComCryptoError
+from hermes_agent.gateway.config import Platform, PlatformConfig
+from hermes_agent.gateway.platforms.base import BasePlatformAdapter, MessageEvent, MessageType, SendResult
+from hermes_agent.gateway.platforms.wecom_crypto import WXBizMsgCrypt, WeComCryptoError
 
 logger = logging.getLogger(__name__)
 

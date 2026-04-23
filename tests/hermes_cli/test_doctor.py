@@ -8,10 +8,10 @@ from types import SimpleNamespace
 
 import pytest
 
-import hermes_cli.doctor as doctor
-import hermes_cli.gateway as gateway_cli
-from hermes_cli import doctor as doctor_mod
-from hermes_cli.doctor import _has_provider_env_config
+import hermes_agent.cli.doctor as doctor
+import hermes_agent.cli.gateway as gateway_cli
+from hermes_agent.cli import doctor as doctor_mod
+from hermes_agent.cli.doctor import _has_provider_env_config
 
 
 class TestDoctorPlatformHints:
@@ -79,7 +79,7 @@ class TestHonchoDoctorConfigDetection:
         fake_config = SimpleNamespace(enabled=True, api_key="***")
 
         monkeypatch.setattr(
-            "plugins.memory.honcho.client.HonchoClientConfig.from_global_config",
+            "hermes_agent.plugins.memory.honcho.client.HonchoClientConfig.from_global_config",
             lambda: fake_config,
         )
 
@@ -89,7 +89,7 @@ class TestHonchoDoctorConfigDetection:
         fake_config = SimpleNamespace(enabled=True, api_key="")
 
         monkeypatch.setattr(
-            "plugins.memory.honcho.client.HonchoClientConfig.from_global_config",
+            "hermes_agent.plugins.memory.honcho.client.HonchoClientConfig.from_global_config",
             lambda: fake_config,
         )
 
@@ -117,7 +117,7 @@ def test_run_doctor_sets_interactive_env_for_tool_checks(monkeypatch, tmp_path):
         check_tool_availability=fake_check_tool_availability,
         TOOLSET_REQUIREMENTS={},
     )
-    monkeypatch.setitem(sys.modules, "model_tools", fake_model_tools)
+    monkeypatch.setitem(sys.modules, "hermes_agent.tools.dispatch", fake_model_tools)
 
     with pytest.raises(SystemExit):
         doctor_mod.run_doctor(Namespace(fix=False))
@@ -187,11 +187,11 @@ class TestDoctorMemoryProviderSection:
             check_tool_availability=lambda *a, **kw: ([], []),
             TOOLSET_REQUIREMENTS={},
         )
-        monkeypatch.setitem(sys.modules, "model_tools", fake_model_tools)
+        monkeypatch.setitem(sys.modules, "hermes_agent.tools.dispatch", fake_model_tools)
 
         # Stub auth checks to avoid real API calls
         try:
-            from hermes_cli import auth as _auth_mod
+            from hermes_agent.cli import auth as _auth_mod
             monkeypatch.setattr(_auth_mod, "get_nous_auth_status", lambda: {})
             monkeypatch.setattr(_auth_mod, "get_codex_auth_status", lambda: {})
         except Exception:
@@ -214,7 +214,7 @@ class TestDoctorMemoryProviderSection:
     def test_honcho_provider_not_installed_shows_fail(self, monkeypatch, tmp_path):
         # Make honcho import fail
         monkeypatch.setitem(
-            sys.modules, "plugins.memory.honcho.client", None
+            sys.modules, "hermes_agent.plugins.memory.honcho.client", None
         )
         out = self._run_doctor_and_capture(monkeypatch, tmp_path, provider="honcho")
         assert "Memory Provider" in out
@@ -223,7 +223,7 @@ class TestDoctorMemoryProviderSection:
 
     def test_mem0_provider_not_installed_shows_fail(self, monkeypatch, tmp_path):
         # Make mem0 import fail
-        monkeypatch.setitem(sys.modules, "plugins.memory.mem0", None)
+        monkeypatch.setitem(sys.modules, "hermes_agent.plugins.memory.mem0", None)
         out = self._run_doctor_and_capture(monkeypatch, tmp_path, provider="mem0")
         assert "Memory Provider" in out
         assert "Built-in memory active" not in out
@@ -276,10 +276,10 @@ def test_run_doctor_termux_does_not_mark_browser_available_without_agent_browser
             "browser": {"name": "browser"},
         },
     )
-    monkeypatch.setitem(sys.modules, "model_tools", fake_model_tools)
+    monkeypatch.setitem(sys.modules, "hermes_agent.tools.dispatch", fake_model_tools)
 
     try:
-        from hermes_cli import auth as _auth_mod
+        from hermes_agent.cli import auth as _auth_mod
         monkeypatch.setattr(_auth_mod, "get_nous_auth_status", lambda: {})
         monkeypatch.setattr(_auth_mod, "get_codex_auth_status", lambda: {})
     except Exception:
@@ -315,10 +315,10 @@ def test_run_doctor_kimi_cn_env_is_detected_and_probe_is_null_safe(monkeypatch, 
         check_tool_availability=lambda *a, **kw: ([], []),
         TOOLSET_REQUIREMENTS={},
     )
-    monkeypatch.setitem(sys.modules, "model_tools", fake_model_tools)
+    monkeypatch.setitem(sys.modules, "hermes_agent.tools.dispatch", fake_model_tools)
 
     try:
-        from hermes_cli import auth as _auth_mod
+        from hermes_agent.cli import auth as _auth_mod
         monkeypatch.setattr(_auth_mod, "get_nous_auth_status", lambda: {})
         monkeypatch.setattr(_auth_mod, "get_codex_auth_status", lambda: {})
     except Exception:
@@ -367,10 +367,10 @@ def test_run_doctor_opencode_go_skips_invalid_models_probe(monkeypatch, tmp_path
         check_tool_availability=lambda *a, **kw: ([], []),
         TOOLSET_REQUIREMENTS={},
     )
-    monkeypatch.setitem(sys.modules, "model_tools", fake_model_tools)
+    monkeypatch.setitem(sys.modules, "hermes_agent.tools.dispatch", fake_model_tools)
 
     try:
-        from hermes_cli import auth as _auth_mod
+        from hermes_agent.cli import auth as _auth_mod
         monkeypatch.setattr(_auth_mod, "get_nous_auth_status", lambda: {})
         monkeypatch.setattr(_auth_mod, "get_codex_auth_status", lambda: {})
     except ImportError:

@@ -5,7 +5,7 @@ import os
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from tools.send_message_tool import (
+from hermes_agent.tools.send_message import (
     _send_dingtalk,
     _send_homeassistant,
     _send_mattermost,

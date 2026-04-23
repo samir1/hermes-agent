@@ -16,7 +16,7 @@ import urllib.request
 from pathlib import Path
 from typing import Optional
 
-from hermes_constants import get_hermes_home
+from hermes_agent.constants import get_hermes_home
 
 
 # ---------------------------------------------------------------------------
@@ -319,7 +319,7 @@ def _resolve_log_path(log_name: str) -> Optional[Path]:
 
     Returns the path if found, or None.
     """
-    from hermes_cli.logs import LOG_FILES
+    from hermes_agent.cli.logs import LOG_FILES
 
     filename = LOG_FILES.get(log_name)
     if not filename:
@@ -340,7 +340,7 @@ def _resolve_log_path(log_name: str) -> Optional[Path]:
 
 def _read_log_tail(log_name: str, num_lines: int) -> str:
     """Read the last *num_lines* from a log file, or return a placeholder."""
-    from hermes_cli.logs import _read_last_n_lines
+    from hermes_agent.cli.logs import _read_last_n_lines
 
     log_path = _resolve_log_path(log_name)
     if log_path is None:
@@ -388,7 +388,7 @@ def _read_full_log(log_name: str, max_bytes: int = _MAX_LOG_BYTES) -> Optional[s
 
 def _capture_dump() -> str:
     """Run ``hermes dump`` and return its stdout as a string."""
-    from hermes_cli.dump import run_dump
+    from hermes_agent.cli.dump import run_dump
 
     class _FakeArgs:
         show_keys = False

@@ -20,8 +20,8 @@ from urllib.parse import quote
 
 import httpx
 
-from gateway.config import Platform, PlatformConfig
-from gateway.platforms.base import (
+from hermes_agent.gateway.config import Platform, PlatformConfig
+from hermes_agent.gateway.platforms.base import (
     BasePlatformAdapter,
     MessageEvent,
     MessageType,
@@ -30,7 +30,7 @@ from gateway.platforms.base import (
     cache_audio_from_bytes,
     cache_document_from_bytes,
 )
-from gateway.platforms.helpers import strip_markdown
+from hermes_agent.gateway.platforms.helpers import strip_markdown
 
 logger = logging.getLogger(__name__)
 
@@ -502,7 +502,7 @@ class BlueBubblesAdapter(BasePlatformAdapter):
         metadata: Optional[Dict[str, Any]] = None,
     ) -> SendResult:
         try:
-            from gateway.platforms.base import cache_image_from_url
+            from hermes_agent.gateway.platforms.base import cache_image_from_url
 
             local_path = await cache_image_from_url(image_url)
             return await self._send_attachment(chat_id, local_path, caption=caption)

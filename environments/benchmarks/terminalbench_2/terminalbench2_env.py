@@ -60,7 +60,7 @@ from atroposlib.envs.server_handling.server_manager import APIServerConfig
 from environments.agent_loop import AgentResult, HermesAgentLoop
 from environments.hermes_base_env import HermesAgentBaseEnv, HermesAgentEnvConfig
 from environments.tool_context import ToolContext
-from tools.terminal_tool import (
+from hermes_agent.tools.terminal import (
     register_task_env_overrides,
     clear_task_env_overrides,
     cleanup_vm,
@@ -876,7 +876,7 @@ class TerminalBench2EvalEnv(HermesAgentBaseEnv):
             # Let cancellations propagate (finally blocks run cleanup_vm)
             await asyncio.gather(*eval_tasks, return_exceptions=True)
             # Belt-and-suspenders: clean up any remaining sandboxes
-            from tools.terminal_tool import cleanup_all_environments
+            from hermes_agent.tools.terminal import cleanup_all_environments
             cleanup_all_environments()
             print("All sandboxes cleaned up.")
             return
@@ -984,7 +984,7 @@ class TerminalBench2EvalEnv(HermesAgentBaseEnv):
 
         # Kill all remaining sandboxes. Timed-out tasks leave orphaned thread
         # pool workers still executing commands -- cleanup_all stops them.
-        from tools.terminal_tool import cleanup_all_environments
+        from hermes_agent.tools.terminal import cleanup_all_environments
         print("\nCleaning up all sandboxes...")
         cleanup_all_environments()
 

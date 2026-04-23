@@ -25,7 +25,7 @@ sys.modules.setdefault("telegram", _tg)
 sys.modules.setdefault("telegram.constants", _tg.constants)
 sys.modules.setdefault("telegram.ext", types.ModuleType("telegram.ext"))
 
-from gateway.platforms.base import (
+from hermes_agent.gateway.platforms.base import (
     BasePlatformAdapter,
     MessageEvent,
     MessageType,
@@ -57,7 +57,7 @@ def _make_event(text="hello", chat_id="123", platform_val="telegram"):
 
 def _make_runner():
     """Build a minimal GatewayRunner-like object for testing."""
-    from gateway.run import GatewayRunner, _AGENT_PENDING_SENTINEL
+    from hermes_agent.gateway.run import GatewayRunner, _AGENT_PENDING_SENTINEL
 
     runner = object.__new__(GatewayRunner)
     runner._running_agents = {}

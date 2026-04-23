@@ -9,11 +9,11 @@ import json
 import pytest
 from types import SimpleNamespace
 
-from agent.anthropic_adapter import (
+from hermes_agent.providers.anthropic_adapter import (
     normalize_anthropic_response,
     normalize_anthropic_response_v2,
 )
-from agent.transports.types import NormalizedResponse, ToolCall
+from hermes_agent.providers.types import NormalizedResponse, ToolCall
 
 
 # ---------------------------------------------------------------------------

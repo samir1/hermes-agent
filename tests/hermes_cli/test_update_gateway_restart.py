@@ -12,9 +12,9 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-import hermes_cli.gateway as gateway_cli
-import hermes_cli.main as cli_main
-from hermes_cli.main import cmd_update
+import hermes_agent.cli.gateway as gateway_cli
+import hermes_agent.cli.main as cli_main
+from hermes_agent.cli.main import cmd_update
 
 
 # ---------------------------------------------------------------------------
@@ -437,7 +437,7 @@ class TestCmdUpdateLaunchdRestart:
             systemd_active=False,
         )
 
-        with patch("gateway.status.get_running_pid", return_value=None):
+        with patch("hermes_agent.gateway.status.get_running_pid", return_value=None):
             cmd_update(mock_args)
 
         captured = capsys.readouterr().out
@@ -847,10 +847,10 @@ class TestGatewayModeWritesExitCodeEarly:
         hermes_home = tmp_path / ".hermes"
         hermes_home.mkdir()
         monkeypatch.setenv("HERMES_HOME", str(hermes_home))
-        import hermes_cli.config as _cfg
+        import hermes_agent.cli.config as _cfg
         monkeypatch.setattr(_cfg, "get_hermes_home", lambda: hermes_home)
         # Also patch the module-level ref used by cmd_update
-        import hermes_cli.main as _main_mod
+        import hermes_agent.cli.main as _main_mod
         monkeypatch.setattr(_main_mod, "get_hermes_home", lambda: hermes_home)
 
         mock_run.side_effect = _make_run_side_effect(commit_count="1")
@@ -877,9 +877,9 @@ class TestGatewayModeWritesExitCodeEarly:
         hermes_home = tmp_path / ".hermes"
         hermes_home.mkdir()
         monkeypatch.setenv("HERMES_HOME", str(hermes_home))
-        import hermes_cli.config as _cfg
+        import hermes_agent.cli.config as _cfg
         monkeypatch.setattr(_cfg, "get_hermes_home", lambda: hermes_home)
-        import hermes_cli.main as _main_mod
+        import hermes_agent.cli.main as _main_mod
         monkeypatch.setattr(_main_mod, "get_hermes_home", lambda: hermes_home)
 
         mock_run.side_effect = _make_run_side_effect(commit_count="1")
@@ -905,9 +905,9 @@ class TestGatewayModeWritesExitCodeEarly:
         hermes_home = tmp_path / ".hermes"
         hermes_home.mkdir()
         monkeypatch.setenv("HERMES_HOME", str(hermes_home))
-        import hermes_cli.config as _cfg
+        import hermes_agent.cli.config as _cfg
         monkeypatch.setattr(_cfg, "get_hermes_home", lambda: hermes_home)
-        import hermes_cli.main as _main_mod
+        import hermes_agent.cli.main as _main_mod
         monkeypatch.setattr(_main_mod, "get_hermes_home", lambda: hermes_home)
 
         exit_code_path = hermes_home / ".update_exit_code"

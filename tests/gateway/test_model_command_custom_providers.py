@@ -3,10 +3,10 @@
 import yaml
 import pytest
 
-from gateway.config import Platform
-from gateway.platforms.base import MessageEvent, MessageType
-from gateway.run import GatewayRunner
-from gateway.session import SessionSource
+from hermes_agent.gateway.config import Platform
+from hermes_agent.gateway.platforms.base import MessageEvent, MessageType
+from hermes_agent.gateway.run import GatewayRunner
+from hermes_agent.gateway.session import SessionSource
 
 
 def _make_runner():
@@ -50,10 +50,10 @@ async def test_handle_model_command_lists_saved_custom_provider(tmp_path, monkey
         encoding="utf-8",
     )
 
-    import gateway.run as gateway_run
+    import hermes_agent.gateway.run as gateway_run
 
     monkeypatch.setattr(gateway_run, "_hermes_home", hermes_home)
-    monkeypatch.setattr("agent.models_dev.fetch_models_dev", lambda: {})
+    monkeypatch.setattr("hermes_agent.providers.metadata_dev.fetch_models_dev", lambda: {})
 
     result = await _make_runner()._handle_model_command(_make_event())
 

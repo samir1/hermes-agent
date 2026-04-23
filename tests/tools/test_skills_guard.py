@@ -21,7 +21,7 @@ def _can_symlink():
         return False
 
 
-from tools.skills_guard import (
+from hermes_agent.tools.skills.guard import (
     Finding,
     ScanResult,
     scan_file,

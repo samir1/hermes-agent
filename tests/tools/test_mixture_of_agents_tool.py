@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-moa = importlib.import_module("tools.mixture_of_agents_tool")
+moa = importlib.import_module("hermes_agent.tools.mixture_of_agents")
 
 
 def test_moa_defaults_track_current_openrouter_frontier_models():

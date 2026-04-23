@@ -3,7 +3,7 @@
 import socket
 from unittest.mock import patch
 
-from tools.url_safety import is_safe_url, _is_blocked_ip
+from hermes_agent.tools.security.urls import is_safe_url, _is_blocked_ip
 
 import ipaddress
 import pytest
@@ -131,7 +131,7 @@ class TestIsSafeUrl:
 
     def test_unexpected_error_fails_closed(self):
         """Unexpected exceptions should block, not allow."""
-        with patch("tools.url_safety.urlparse", side_effect=ValueError("bad url")):
+        with patch("hermes_agent.tools.security.urls.urlparse", side_effect=ValueError("bad url")):
             assert is_safe_url("http://evil.com/") is False
 
     def test_metadata_goog_blocked(self):

@@ -23,7 +23,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
-from utils import base_url_host_matches, base_url_hostname
+from hermes_agent.utils import base_url_host_matches, base_url_hostname
 
 logger = logging.getLogger(__name__)
 
@@ -341,7 +341,7 @@ def get_provider(name: str) -> Optional[ProviderDef]:
 
     # Try to get models.dev data
     try:
-        from agent.models_dev import get_provider_info as _mdev_provider
+        from hermes_agent.providers.metadata_dev import get_provider_info as _mdev_provider
         mdev_info = _mdev_provider(canonical)
     except Exception:
         mdev_info = None
@@ -596,7 +596,7 @@ def resolve_provider_full(
 
     # 3. Try models.dev directly (for providers not in our ALIASES)
     try:
-        from agent.models_dev import get_provider_info as _mdev_provider
+        from hermes_agent.providers.metadata_dev import get_provider_info as _mdev_provider
         mdev_info = _mdev_provider(canonical)
         if mdev_info is not None:
             return ProviderDef(

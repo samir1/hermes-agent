@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from gateway.stream_consumer import GatewayStreamConsumer, StreamConsumerConfig
+from hermes_agent.gateway.stream_consumer import GatewayStreamConsumer, StreamConsumerConfig
 
 
 # ── _clean_for_display unit tests ────────────────────────────────────────
@@ -148,14 +148,14 @@ class TestEditMessageFinalizeSignature:
     @pytest.mark.parametrize(
         "module_path,class_name",
         [
-            ("gateway.platforms.telegram", "TelegramAdapter"),
-            ("gateway.platforms.discord", "DiscordAdapter"),
-            ("gateway.platforms.slack", "SlackAdapter"),
-            ("gateway.platforms.matrix", "MatrixAdapter"),
-            ("gateway.platforms.mattermost", "MattermostAdapter"),
-            ("gateway.platforms.feishu", "FeishuAdapter"),
-            ("gateway.platforms.whatsapp", "WhatsAppAdapter"),
-            ("gateway.platforms.dingtalk", "DingTalkAdapter"),
+            ("hermes_agent.gateway.platforms.telegram", "TelegramAdapter"),
+            ("hermes_agent.gateway.platforms.discord", "DiscordAdapter"),
+            ("hermes_agent.gateway.platforms.slack", "SlackAdapter"),
+            ("hermes_agent.gateway.platforms.matrix", "MatrixAdapter"),
+            ("hermes_agent.gateway.platforms.mattermost", "MattermostAdapter"),
+            ("hermes_agent.gateway.platforms.feishu", "FeishuAdapter"),
+            ("hermes_agent.gateway.platforms.whatsapp", "WhatsAppAdapter"),
+            ("hermes_agent.gateway.platforms.dingtalk", "DingTalkAdapter"),
         ],
     )
     def test_edit_message_accepts_finalize(self, module_path, class_name):

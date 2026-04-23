@@ -88,7 +88,7 @@ class TestSourceLinesAreClamped:
         )
 
     def test_cli_clamped(self):
-        src = self._read_file("cli.py")
+        src = self._read_file("hermes_agent/cli/repl.py")
         assert "min(100, (last_prompt" in src, (
             "cli.py /stats pct is not clamped with min(100, ...)"
         )

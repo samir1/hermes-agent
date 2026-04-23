@@ -10,7 +10,7 @@ A distribution is a dictionary mapping toolset names to their selection probabil
 Probabilities should sum to 100, but the system will normalize if they don't.
 
 Usage:
-    from toolset_distributions import get_distribution, list_distributions
+    from hermes_agent.tools.distributions import get_distribution, list_distributions
     
     # Get a specific distribution
     dist = get_distribution("image_gen")
@@ -21,7 +21,7 @@ Usage:
 
 from typing import Any, Dict, List, Optional
 import random
-from toolsets import validate_toolset
+from hermes_agent.tools.toolsets import validate_toolset
 
 
 # Distribution definitions
@@ -30,7 +30,7 @@ DISTRIBUTIONS = {
     # Default: All tools available 100% of the time
     "default": {
         "description": "All available tools, all the time",
-        "toolsets": {
+        "hermes_agent.tools.toolsets": {
             "web": 100,
             "vision": 100,
             "image_gen": 100,
@@ -44,7 +44,7 @@ DISTRIBUTIONS = {
     # Image generation focused distribution
     "image_gen": {
         "description": "Heavy focus on image generation with vision and web support",
-        "toolsets": {
+        "hermes_agent.tools.toolsets": {
             "image_gen": 90,  # 80% chance of image generation tools
             "vision": 90,      # 60% chance of vision tools
             "web": 55,         # 40% chance of web tools
@@ -56,7 +56,7 @@ DISTRIBUTIONS = {
     # Research-focused distribution
     "research": {
         "description": "Web research with vision analysis and reasoning",
-        "toolsets": {
+        "hermes_agent.tools.toolsets": {
             "web": 90,       # 90% chance of web tools
             "browser": 70,   # 70% chance of browser tools for deep research
             "vision": 50,    # 50% chance of vision tools
@@ -68,7 +68,7 @@ DISTRIBUTIONS = {
     # Scientific problem solving focused distribution
     "science": {
         "description": "Scientific research with web, terminal, file, and browser capabilities",
-        "toolsets": {
+        "hermes_agent.tools.toolsets": {
             "web": 94,       # 94% chance of web tools
             "terminal": 94,  # 94% chance of terminal tools
             "file": 94,      # 94% chance of file tools
@@ -82,7 +82,7 @@ DISTRIBUTIONS = {
     # Development-focused distribution
     "development": {
         "description": "Terminal, file tools, and reasoning with occasional web lookup",
-        "toolsets": {
+        "hermes_agent.tools.toolsets": {
             "terminal": 80,  # 80% chance of terminal tools
             "file": 80,      # 80% chance of file tools (read, write, patch, search)
             "moa": 60,       # 60% chance of reasoning tools
@@ -94,7 +94,7 @@ DISTRIBUTIONS = {
     # Safe mode (no terminal)
     "safe": {
         "description": "All tools except terminal for safety",
-        "toolsets": {
+        "hermes_agent.tools.toolsets": {
             "web": 80,
             "browser": 70,   # Browser is safe (no local filesystem access)
             "vision": 60,
@@ -106,7 +106,7 @@ DISTRIBUTIONS = {
     # Balanced distribution
     "balanced": {
         "description": "Equal probability of all toolsets",
-        "toolsets": {
+        "hermes_agent.tools.toolsets": {
             "web": 50,
             "vision": 50,
             "image_gen": 50,
@@ -120,7 +120,7 @@ DISTRIBUTIONS = {
     # Minimal (web only)
     "minimal": {
         "description": "Only web tools for basic research",
-        "toolsets": {
+        "hermes_agent.tools.toolsets": {
             "web": 100
         }
     },
@@ -128,7 +128,7 @@ DISTRIBUTIONS = {
     # Terminal only
     "terminal_only": {
         "description": "Terminal and file tools for code execution tasks",
-        "toolsets": {
+        "hermes_agent.tools.toolsets": {
             "terminal": 100,
             "file": 100
         }
@@ -137,7 +137,7 @@ DISTRIBUTIONS = {
     # Terminal + web (common for coding tasks that need docs)
     "terminal_web": {
         "description": "Terminal and file tools with web search for documentation lookup",
-        "toolsets": {
+        "hermes_agent.tools.toolsets": {
             "terminal": 100,
             "file": 100,
             "web": 100
@@ -147,7 +147,7 @@ DISTRIBUTIONS = {
     # Creative (vision + image generation)
     "creative": {
         "description": "Image generation and vision analysis focus",
-        "toolsets": {
+        "hermes_agent.tools.toolsets": {
             "image_gen": 90,
             "vision": 90,
             "web": 30
@@ -157,7 +157,7 @@ DISTRIBUTIONS = {
     # Reasoning heavy
     "reasoning": {
         "description": "Heavy mixture of agents usage with minimal other tools",
-        "toolsets": {
+        "hermes_agent.tools.toolsets": {
             "moa": 90,
             "web": 30,
             "terminal": 20
@@ -167,7 +167,7 @@ DISTRIBUTIONS = {
     # Browser-based web interaction
     "browser_use": {
         "description": "Full browser-based web interaction with search, vision, and page control",
-        "toolsets": {
+        "hermes_agent.tools.toolsets": {
             "browser": 100,  # All browser tools always available
             "web": 80,       # Web search for finding URLs and quick lookups
             "vision": 70     # Vision analysis for images found on pages
@@ -177,7 +177,7 @@ DISTRIBUTIONS = {
     # Browser only (no other tools)
     "browser_only": {
         "description": "Only browser automation tools for pure web interaction tasks",
-        "toolsets": {
+        "hermes_agent.tools.toolsets": {
             "browser": 100
         }
     },
@@ -185,7 +185,7 @@ DISTRIBUTIONS = {
     # Browser-focused tasks distribution (for browser-use-tasks.jsonl)
     "browser_tasks": {
         "description": "Browser-focused distribution (browser toolset includes web_search for finding URLs since Google blocks direct browser searches)",
-        "toolsets": {
+        "hermes_agent.tools.toolsets": {
             "browser": 97,   # 97% - browser tools (includes web_search) almost always available
             "vision": 12,    # 12% - vision analysis occasionally
             "terminal": 15   # 15% - terminal occasionally for local operations
@@ -195,7 +195,7 @@ DISTRIBUTIONS = {
     # Terminal-focused tasks distribution (for nous-terminal-tasks.jsonl)
     "terminal_tasks": {
         "description": "Terminal-focused distribution with high terminal/file availability, occasional other tools",
-        "toolsets": {
+        "hermes_agent.tools.toolsets": {
             "terminal": 97,   # 97% - terminal almost always available
             "file": 97,       # 97% - file tools almost always available
             "web": 97,        # 15% - web search/scrape for documentation
@@ -208,7 +208,7 @@ DISTRIBUTIONS = {
     # Mixed browser+terminal tasks distribution (for mixed-browser-terminal-tasks.jsonl)
     "mixed_tasks": {
         "description": "Mixed distribution with high browser, terminal, and file availability for complex tasks",
-        "toolsets": {
+        "hermes_agent.tools.toolsets": {
             "browser": 92,    # 92% - browser tools highly available
             "terminal": 92,   # 92% - terminal highly available
             "file": 92,       # 92% - file tools highly available
@@ -267,7 +267,7 @@ def sample_toolsets_from_distribution(distribution_name: str) -> List[str]:
     # Sample each toolset independently based on its probability
     selected_toolsets = []
     
-    for toolset_name, probability in dist["toolsets"].items():
+    for toolset_name, probability in dist["hermes_agent.tools.toolsets"].items():
         # Validate toolset exists
         if not validate_toolset(toolset_name):
             print(f"⚠️  Warning: Toolset '{toolset_name}' in distribution '{distribution_name}' is not valid")
@@ -279,9 +279,9 @@ def sample_toolsets_from_distribution(distribution_name: str) -> List[str]:
     
     # If no toolsets were selected (can happen with low probabilities), 
     # ensure at least one toolset is selected by picking the highest probability one
-    if not selected_toolsets and dist["toolsets"]:
+    if not selected_toolsets and dist["hermes_agent.tools.toolsets"]:
         # Find toolset with highest probability
-        highest_prob_toolset = max(dist["toolsets"].items(), key=lambda x: x[1])[0]
+        highest_prob_toolset = max(dist["hermes_agent.tools.toolsets"].items(), key=lambda x: x[1])[0]
         if validate_toolset(highest_prob_toolset):
             selected_toolsets.append(highest_prob_toolset)
     
@@ -316,7 +316,7 @@ def print_distribution_info(distribution_name: str) -> None:
     print(f"\n📊 Distribution: {distribution_name}")
     print(f"   Description: {dist['description']}")
     print("   Toolsets:")
-    for toolset, prob in sorted(dist["toolsets"].items(), key=lambda x: x[1], reverse=True):
+    for toolset, prob in sorted(dist["hermes_agent.tools.toolsets"].items(), key=lambda x: x[1], reverse=True):
         print(f"     • {toolset:15} : {prob:3}% chance")
 
 
@@ -333,7 +333,7 @@ if __name__ == "__main__":
     for name, dist in list_distributions().items():
         print(f"\n  {name}:")
         print(f"    {dist['description']}")
-        toolset_list = ", ".join([f"{ts}({p}%)" for ts, p in dist["toolsets"].items()])
+        toolset_list = ", ".join([f"{ts}({p}%)" for ts, p in dist["hermes_agent.tools.toolsets"].items()])
         print(f"    Toolsets: {toolset_list}")
     
     # Demo sampling

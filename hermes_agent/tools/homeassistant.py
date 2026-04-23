@@ -474,7 +474,7 @@ HA_CALL_SERVICE_SCHEMA = {
 # Registration
 # ---------------------------------------------------------------------------
 
-from tools.registry import registry, tool_error
+from hermes_agent.tools.registry import registry, tool_error
 
 registry.register(
     name="ha_list_entities",

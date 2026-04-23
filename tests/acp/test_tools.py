@@ -2,7 +2,7 @@
 
 import pytest
 
-from acp_adapter.tools import (
+from hermes_agent.acp.tools import (
     TOOL_KIND_MAP,
     build_tool_complete,
     build_tool_start,

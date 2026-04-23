@@ -10,8 +10,6 @@ import sys
 import importlib
 from unittest.mock import MagicMock, patch
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-
 # Module-level reference to the cli module (set by _make_cli on first call)
 _cli_mod = None
 
@@ -49,7 +47,7 @@ def _make_cli(tool_progress="all"):
     }
     with patch.dict(sys.modules, prompt_toolkit_stubs), \
          patch.dict("os.environ", clean_env, clear=False):
-        import cli as mod
+        import hermes_agent.cli.repl as mod
         mod = importlib.reload(mod)
         _cli_mod = mod
         with patch.object(mod, "get_tool_definitions", return_value=[]), \
@@ -79,10 +77,10 @@ class TestToolProgressScrollback:
         cli = _make_cli(tool_progress="all")
         with patch.object(_cli_mod, "_cprint") as mock_print:
             # First call
-            cli._on_tool_progress("tool.started", "read_file", "cli.py", {"path": "cli.py"})
+            cli._on_tool_progress("tool.started", "read_file", "hermes_agent/cli/repl.py", {"path": "hermes_agent/cli/repl.py"})
             cli._on_tool_progress("tool.completed", "read_file", None, None, duration=0.1, is_error=False)
             # Second call (same tool)
-            cli._on_tool_progress("tool.started", "read_file", "run_agent.py", {"path": "run_agent.py"})
+            cli._on_tool_progress("tool.started", "read_file", "hermes_agent/agent/loop.py", {"path": "hermes_agent/agent/loop.py"})
             cli._on_tool_progress("tool.completed", "read_file", None, None, duration=0.2, is_error=False)
 
         assert mock_print.call_count == 2
@@ -91,9 +89,9 @@ class TestToolProgressScrollback:
         """In 'new' mode, consecutive calls to the same tool only print once."""
         cli = _make_cli(tool_progress="new")
         with patch.object(_cli_mod, "_cprint") as mock_print:
-            cli._on_tool_progress("tool.started", "read_file", "cli.py", {"path": "cli.py"})
+            cli._on_tool_progress("tool.started", "read_file", "hermes_agent/cli/repl.py", {"path": "hermes_agent/cli/repl.py"})
             cli._on_tool_progress("tool.completed", "read_file", None, None, duration=0.1, is_error=False)
-            cli._on_tool_progress("tool.started", "read_file", "run_agent.py", {"path": "run_agent.py"})
+            cli._on_tool_progress("tool.started", "read_file", "hermes_agent/agent/loop.py", {"path": "hermes_agent/agent/loop.py"})
             cli._on_tool_progress("tool.completed", "read_file", None, None, duration=0.2, is_error=False)
 
         assert mock_print.call_count == 1  # Only the first read_file
@@ -102,11 +100,11 @@ class TestToolProgressScrollback:
         """In 'new' mode, a different tool name triggers a new line."""
         cli = _make_cli(tool_progress="new")
         with patch.object(_cli_mod, "_cprint") as mock_print:
-            cli._on_tool_progress("tool.started", "read_file", "cli.py", {"path": "cli.py"})
+            cli._on_tool_progress("tool.started", "read_file", "hermes_agent/cli/repl.py", {"path": "hermes_agent/cli/repl.py"})
             cli._on_tool_progress("tool.completed", "read_file", None, None, duration=0.1, is_error=False)
             cli._on_tool_progress("tool.started", "search_files", "pattern", {"pattern": "test"})
             cli._on_tool_progress("tool.completed", "search_files", None, None, duration=0.3, is_error=False)
-            cli._on_tool_progress("tool.started", "read_file", "run_agent.py", {"path": "run_agent.py"})
+            cli._on_tool_progress("tool.started", "read_file", "hermes_agent/agent/loop.py", {"path": "hermes_agent/agent/loop.py"})
             cli._on_tool_progress("tool.completed", "read_file", None, None, duration=0.2, is_error=False)
 
         # read_file, search_files, read_file (3rd prints because search_files broke the streak)

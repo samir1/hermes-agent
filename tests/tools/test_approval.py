@@ -5,8 +5,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch as mock_patch
 
-import tools.approval as approval_module
-from tools.approval import (
+import hermes_agent.tools.security.approval as approval_module
+from hermes_agent.tools.security.approval import (
     _get_approval_mode,
     _smart_approve,
     approve_session,
@@ -20,11 +20,11 @@ from tools.approval import (
 
 class TestApprovalModeParsing:
     def test_unquoted_yaml_off_boolean_false_maps_to_off(self):
-        with mock_patch("hermes_cli.config.load_config", return_value={"approvals": {"mode": False}}):
+        with mock_patch("hermes_agent.cli.config.load_config", return_value={"approvals": {"mode": False}}):
             assert _get_approval_mode() == "off"
 
     def test_string_off_still_maps_to_off(self):
-        with mock_patch("hermes_cli.config.load_config", return_value={"approvals": {"mode": "off"}}):
+        with mock_patch("hermes_agent.cli.config.load_config", return_value={"approvals": {"mode": "off"}}):
             assert _get_approval_mode() == "off"
 
 
@@ -33,7 +33,7 @@ class TestSmartApproval:
         response = SimpleNamespace(
             choices=[SimpleNamespace(message=SimpleNamespace(content="APPROVE"))]
         )
-        with mock_patch("agent.auxiliary_client.call_llm", return_value=response) as mock_call:
+        with mock_patch("hermes_agent.providers.auxiliary.call_llm", return_value=response) as mock_call:
             result = _smart_approve("python -c \"print('hello')\"", "script execution via -c flag")
 
         assert result == "approve"

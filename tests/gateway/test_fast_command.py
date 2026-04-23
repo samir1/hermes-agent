@@ -9,10 +9,10 @@ from unittest.mock import AsyncMock
 import pytest
 import yaml
 
-import gateway.run as gateway_run
-from gateway.config import Platform
-from gateway.platforms.base import MessageEvent
-from gateway.session import SessionSource
+import hermes_agent.gateway.run as gateway_run
+from hermes_agent.gateway.config import Platform
+from hermes_agent.gateway.platforms.base import MessageEvent
+from hermes_agent.gateway.session import SessionSource
 
 
 class _CapturingAgent:
@@ -39,9 +39,9 @@ class _CapturingAgent:
 
 
 def _install_fake_agent(monkeypatch):
-    fake_run_agent = types.ModuleType("run_agent")
+    fake_run_agent = types.ModuleType("hermes_agent.agent.loop")
     fake_run_agent.AIAgent = _CapturingAgent
-    monkeypatch.setitem(sys.modules, "run_agent", fake_run_agent)
+    monkeypatch.setitem(sys.modules, "hermes_agent.agent.loop", fake_run_agent)
 
 
 def _make_runner():
@@ -160,7 +160,7 @@ async def test_run_agent_passes_priority_processing_to_gateway_agent(monkeypatch
         },
     )
 
-    import hermes_cli.tools_config as tools_config
+    import hermes_agent.cli.tools_config as tools_config
     monkeypatch.setattr(tools_config, "_get_platform_tools", lambda user_config, platform_key: {"core"})
 
     _CapturingAgent.last_init = None

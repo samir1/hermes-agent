@@ -5,7 +5,7 @@ from typing import List, Optional
 
 import pytest
 
-from tools.clarify_tool import (
+from hermes_agent.tools.clarify import (
     clarify_tool,
     check_clarify_requirements,
     MAX_CHOICES,

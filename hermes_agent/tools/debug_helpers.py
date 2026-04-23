@@ -6,7 +6,7 @@ vision_tools, mixture_of_agents_tool, and image_generation_tool.
 
 Usage in a tool module:
 
-    from tools.debug_helpers import DebugSession
+    from hermes_agent.tools.debug_helpers import DebugSession
 
     _debug = DebugSession("web_tools", env_var="WEB_TOOLS_DEBUG")
 
@@ -28,7 +28,7 @@ import os
 import uuid
 from typing import Any, Dict
 
-from hermes_constants import get_hermes_home
+from hermes_agent.constants import get_hermes_home
 
 logger = logging.getLogger(__name__)
 

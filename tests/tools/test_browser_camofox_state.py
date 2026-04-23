@@ -6,7 +6,7 @@ import pytest
 
 
 def _load_module():
-    from tools import browser_camofox_state as state
+    from hermes_agent.tools.browser import camofox_state as state
     return state
 
 
@@ -54,7 +54,7 @@ class TestCamofoxIdentity:
 
 class TestCamofoxConfigDefaults:
     def test_default_config_includes_managed_persistence_toggle(self):
-        from hermes_cli.config import DEFAULT_CONFIG
+        from hermes_agent.cli.config import DEFAULT_CONFIG
 
         browser_cfg = DEFAULT_CONFIG["browser"]
         assert browser_cfg["camofox"]["managed_persistence"] is False

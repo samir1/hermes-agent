@@ -4,8 +4,8 @@ QQBot platform package.
 Re-exports the main adapter symbols from ``adapter.py`` (the original
 ``qqbot.py``) so that **all existing import paths remain unchanged**::
 
-    from gateway.platforms.qqbot import QQAdapter          # works
-    from gateway.platforms.qqbot import check_qq_requirements  # works
+    from hermes_agent.gateway.platforms.qqbot import QQAdapter          # works
+    from hermes_agent.gateway.platforms.qqbot import check_qq_requirements  # works
 
 New modules:
     - ``constants`` — shared constants (API URLs, timeouts, message types)

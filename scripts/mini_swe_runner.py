@@ -56,7 +56,7 @@ def _effective_temperature_for_model(
     callers must omit the ``temperature`` kwarg entirely in that case.
     """
     try:
-        from agent.auxiliary_client import _fixed_temperature_for_model, OMIT_TEMPERATURE
+        from hermes_agent.providers.auxiliary import _fixed_temperature_for_model, OMIT_TEMPERATURE
     except Exception:
         return None
     result = _fixed_temperature_for_model(model, base_url)
@@ -141,15 +141,15 @@ def create_environment(
         Environment instance with execute() and cleanup() methods
     """
     if env_type == "local":
-        from tools.environments.local import LocalEnvironment
+        from hermes_agent.backends.local import LocalEnvironment
         return LocalEnvironment(cwd=cwd, timeout=timeout)
     
     elif env_type == "docker":
-        from tools.environments.docker import DockerEnvironment
+        from hermes_agent.backends.docker import DockerEnvironment
         return DockerEnvironment(image=image, cwd=cwd, timeout=timeout, **kwargs)
     
     elif env_type == "modal":
-        from tools.environments.modal import ModalEnvironment
+        from hermes_agent.backends.modal import ModalEnvironment
         return ModalEnvironment(image=image, cwd=cwd, timeout=timeout, **kwargs)
     
     else:
@@ -222,7 +222,7 @@ class MiniSWERunner:
             }
             self.client = OpenAI(**client_kwargs)
         else:
-            from agent.auxiliary_client import resolve_provider_client
+            from hermes_agent.providers.auxiliary import resolve_provider_client
             self.client, _ = resolve_provider_client("openrouter", model=model)
             if self.client is None:
                 # Fallback: try auto-detection

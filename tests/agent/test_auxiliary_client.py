@@ -8,7 +8,7 @@ from unittest.mock import patch, MagicMock, AsyncMock
 
 import pytest
 
-from agent.auxiliary_client import (
+from hermes_agent.providers.auxiliary import (
     get_text_auxiliary_client,
     get_available_vision_backends,
     resolve_vision_provider_client,
@@ -48,7 +48,7 @@ def codex_auth_dir(tmp_path, monkeypatch):
         }
     }))
     monkeypatch.setattr(
-        "agent.auxiliary_client._read_codex_access_token",
+        "hermes_agent.providers.auxiliary._read_codex_access_token",
         lambda: "codex-test-token-abc123",
     )
     return codex_dir
@@ -76,8 +76,8 @@ class TestReadCodexAccessToken:
         monkeypatch.setenv("HERMES_HOME", str(hermes_home))
 
         valid_jwt = "eyJhbGciOiJSUzI1NiJ9.eyJleHAiOjk5OTk5OTk5OTl9.sig"
-        with patch("agent.auxiliary_client._select_pool_entry", return_value=(True, None)), \
-             patch("hermes_cli.auth._read_codex_tokens", return_value={
+        with patch("hermes_agent.providers.auxiliary._select_pool_entry", return_value=(True, None)), \
+             patch("hermes_agent.cli.auth.auth._read_codex_tokens", return_value={
                  "tokens": {"access_token": valid_jwt, "refresh_token": "refresh"}
              }):
             result = _read_codex_access_token()
@@ -89,7 +89,7 @@ class TestReadCodexAccessToken:
         hermes_home.mkdir(parents=True, exist_ok=True)
         (hermes_home / "auth.json").write_text(json.dumps({"version": 1, "providers": {}}))
         monkeypatch.setenv("HERMES_HOME", str(hermes_home))
-        with patch("agent.auxiliary_client._select_pool_entry", return_value=(False, None)):
+        with patch("hermes_agent.providers.auxiliary._select_pool_entry", return_value=(False, None)):
             result = _read_codex_access_token()
         assert result is None
 
@@ -112,7 +112,7 @@ class TestReadCodexAccessToken:
         codex_dir = tmp_path / ".codex"
         codex_dir.mkdir()
         (codex_dir / "auth.json").write_text("{bad json")
-        with patch("agent.auxiliary_client.Path.home", return_value=tmp_path):
+        with patch("hermes_agent.providers.auxiliary.Path.home", return_value=tmp_path):
             result = _read_codex_access_token()
         assert result is None
 
@@ -120,7 +120,7 @@ class TestReadCodexAccessToken:
         codex_dir = tmp_path / ".codex"
         codex_dir.mkdir()
         (codex_dir / "auth.json").write_text(json.dumps({"other": "data"}))
-        with patch("agent.auxiliary_client.Path.home", return_value=tmp_path):
+        with patch("hermes_agent.providers.auxiliary.Path.home", return_value=tmp_path):
             result = _read_codex_access_token()
         assert result is None
 
@@ -147,7 +147,7 @@ class TestReadCodexAccessToken:
             },
         }))
         monkeypatch.setenv("HERMES_HOME", str(hermes_home))
-        with patch("agent.auxiliary_client._select_pool_entry", return_value=(False, None)):
+        with patch("hermes_agent.providers.auxiliary._select_pool_entry", return_value=(False, None)):
             result = _read_codex_access_token()
         assert result is None, "Expired JWT should return None"
 
@@ -198,9 +198,9 @@ class TestAnthropicOAuthFlag:
     def test_oauth_token_sets_flag(self, monkeypatch):
         """OAuth tokens (sk-ant-oat01-*) should create client with is_oauth=True."""
         monkeypatch.setenv("ANTHROPIC_TOKEN", "sk-ant-oat01-test-token")
-        with patch("agent.anthropic_adapter.build_anthropic_client") as mock_build:
+        with patch("hermes_agent.providers.anthropic_adapter.build_anthropic_client") as mock_build:
             mock_build.return_value = MagicMock()
-            from agent.auxiliary_client import _try_anthropic, AnthropicAuxiliaryClient
+            from hermes_agent.providers.auxiliary import _try_anthropic, AnthropicAuxiliaryClient
             client, model = _try_anthropic()
             assert client is not None
             assert isinstance(client, AnthropicAuxiliaryClient)
@@ -210,11 +210,11 @@ class TestAnthropicOAuthFlag:
 
     def test_api_key_no_oauth_flag(self, monkeypatch):
         """Regular API keys (sk-ant-api-*) should create client with is_oauth=False."""
-        with patch("agent.anthropic_adapter.resolve_anthropic_token", return_value="sk-ant-api03-testkey1234"), \
-             patch("agent.anthropic_adapter.build_anthropic_client") as mock_build, \
-             patch("agent.auxiliary_client._select_pool_entry", return_value=(False, None)):
+        with patch("hermes_agent.providers.anthropic_adapter.resolve_anthropic_token", return_value="sk-ant-api03-testkey1234"), \
+             patch("hermes_agent.providers.anthropic_adapter.build_anthropic_client") as mock_build, \
+             patch("hermes_agent.providers.auxiliary._select_pool_entry", return_value=(False, None)):
             mock_build.return_value = MagicMock()
-            from agent.auxiliary_client import _try_anthropic, AnthropicAuxiliaryClient
+            from hermes_agent.providers.auxiliary import _try_anthropic, AnthropicAuxiliaryClient
             client, model = _try_anthropic()
             assert client is not None
             assert isinstance(client, AnthropicAuxiliaryClient)
@@ -234,11 +234,11 @@ class TestAnthropicOAuthFlag:
                 return _Entry()
 
         with (
-            patch("agent.auxiliary_client.load_pool", return_value=_Pool()),
-            patch("agent.anthropic_adapter.resolve_anthropic_token", side_effect=AssertionError("legacy path should not run")),
-            patch("agent.anthropic_adapter.build_anthropic_client", return_value=MagicMock()) as mock_build,
+            patch("hermes_agent.providers.auxiliary.load_pool", return_value=_Pool()),
+            patch("hermes_agent.providers.anthropic_adapter.resolve_anthropic_token", side_effect=AssertionError("legacy path should not run")),
+            patch("hermes_agent.providers.anthropic_adapter.build_anthropic_client", return_value=MagicMock()) as mock_build,
         ):
-            from agent.auxiliary_client import _try_anthropic
+            from hermes_agent.providers.auxiliary import _try_anthropic
 
             client, model = _try_anthropic()
 
@@ -250,12 +250,12 @@ class TestAnthropicOAuthFlag:
 class TestTryCodex:
     def test_pool_without_selected_entry_falls_back_to_auth_store(self):
         with (
-            patch("agent.auxiliary_client._select_pool_entry", return_value=(True, None)),
-            patch("agent.auxiliary_client._read_codex_access_token", return_value="codex-auth-token"),
-            patch("agent.auxiliary_client.OpenAI") as mock_openai,
+            patch("hermes_agent.providers.auxiliary._select_pool_entry", return_value=(True, None)),
+            patch("hermes_agent.providers.auxiliary._read_codex_access_token", return_value="codex-auth-token"),
+            patch("hermes_agent.providers.auxiliary.OpenAI") as mock_openai,
         ):
             mock_openai.return_value = MagicMock()
-            from agent.auxiliary_client import _try_codex
+            from hermes_agent.providers.auxiliary import _try_codex
 
             client, model = _try_codex()
 
@@ -293,9 +293,9 @@ class TestExpiredCodexFallback:
 
         # Set up Anthropic as fallback
         monkeypatch.setenv("ANTHROPIC_TOKEN", "sk-ant-oat01-test-fallback")
-        with patch("agent.anthropic_adapter.build_anthropic_client") as mock_build:
+        with patch("hermes_agent.providers.anthropic_adapter.build_anthropic_client") as mock_build:
             mock_build.return_value = MagicMock()
-            from agent.auxiliary_client import _resolve_auto, AnthropicAuxiliaryClient
+            from hermes_agent.providers.auxiliary import _resolve_auto, AnthropicAuxiliaryClient
             client, model = _resolve_auto()
             # Should NOT be Codex, should be Anthropic (or another available provider)
             assert not isinstance(client, type(None)), "Should find a provider after expired Codex"
@@ -324,9 +324,9 @@ class TestExpiredCodexFallback:
         monkeypatch.setenv("HERMES_HOME", str(hermes_home))
         monkeypatch.setenv("OPENROUTER_API_KEY", "or-test-key")
 
-        with patch("agent.auxiliary_client.OpenAI") as mock_openai:
+        with patch("hermes_agent.providers.auxiliary.OpenAI") as mock_openai:
             mock_openai.return_value = MagicMock()
-            from agent.auxiliary_client import _resolve_auto
+            from hermes_agent.providers.auxiliary import _resolve_auto
             client, model = _resolve_auto()
             assert client is not None
             # OpenRouter is 1st in chain, should win
@@ -355,11 +355,11 @@ class TestExpiredCodexFallback:
         monkeypatch.setenv("HERMES_HOME", str(hermes_home))
 
         # Simulate Ollama or custom endpoint
-        with patch("agent.auxiliary_client._resolve_custom_runtime",
+        with patch("hermes_agent.providers.auxiliary._resolve_custom_runtime",
                    return_value=("http://localhost:11434/v1", "sk-dummy")):
-            with patch("agent.auxiliary_client.OpenAI") as mock_openai:
+            with patch("hermes_agent.providers.auxiliary.OpenAI") as mock_openai:
                 mock_openai.return_value = MagicMock()
-                from agent.auxiliary_client import _resolve_auto
+                from hermes_agent.providers.auxiliary import _resolve_auto
                 client, model = _resolve_auto()
                 assert client is not None
 
@@ -367,11 +367,11 @@ class TestExpiredCodexFallback:
     def test_hermes_oauth_file_sets_oauth_flag(self, monkeypatch):
         """OAuth-style tokens should get is_oauth=*** (token is not sk-ant-api-*)."""
         # Mock resolve_anthropic_token to return an OAuth-style token
-        with patch("agent.anthropic_adapter.resolve_anthropic_token", return_value="sk-ant-oat-hermes-token"), \
-             patch("agent.anthropic_adapter.build_anthropic_client") as mock_build, \
-             patch("agent.auxiliary_client._select_pool_entry", return_value=(False, None)):
+        with patch("hermes_agent.providers.anthropic_adapter.resolve_anthropic_token", return_value="sk-ant-oat-hermes-token"), \
+             patch("hermes_agent.providers.anthropic_adapter.build_anthropic_client") as mock_build, \
+             patch("hermes_agent.providers.auxiliary._select_pool_entry", return_value=(False, None)):
             mock_build.return_value = MagicMock()
-            from agent.auxiliary_client import _try_anthropic, AnthropicAuxiliaryClient
+            from hermes_agent.providers.auxiliary import _try_anthropic, AnthropicAuxiliaryClient
             client, model = _try_anthropic()
             assert client is not None, "Should resolve token"
             adapter = client.chat.completions
@@ -424,9 +424,9 @@ class TestExpiredCodexFallback:
         """CLAUDE_CODE_OAUTH_TOKEN env var should get is_oauth=True."""
         monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", "sk-ant-oat-cc-test-token")
         monkeypatch.delenv("ANTHROPIC_TOKEN", raising=False)
-        with patch("agent.anthropic_adapter.build_anthropic_client") as mock_build:
+        with patch("hermes_agent.providers.anthropic_adapter.build_anthropic_client") as mock_build:
             mock_build.return_value = MagicMock()
-            from agent.auxiliary_client import _try_anthropic, AnthropicAuxiliaryClient
+            from hermes_agent.providers.auxiliary import _try_anthropic, AnthropicAuxiliaryClient
             client, model = _try_anthropic()
             assert client is not None
             adapter = client.chat.completions
@@ -438,9 +438,9 @@ class TestExplicitProviderRouting:
 
     def test_explicit_anthropic_api_key(self, monkeypatch):
         """provider='anthropic' + regular API key should work with is_oauth=False."""
-        with patch("agent.anthropic_adapter.resolve_anthropic_token", return_value="sk-ant-api-regular-key"), \
-             patch("agent.anthropic_adapter.build_anthropic_client") as mock_build, \
-             patch("agent.auxiliary_client._select_pool_entry", return_value=(False, None)):
+        with patch("hermes_agent.providers.anthropic_adapter.resolve_anthropic_token", return_value="sk-ant-api-regular-key"), \
+             patch("hermes_agent.providers.anthropic_adapter.build_anthropic_client") as mock_build, \
+             patch("hermes_agent.providers.auxiliary._select_pool_entry", return_value=(False, None)):
             mock_build.return_value = MagicMock()
             client, model = resolve_provider_client("anthropic")
             assert client is not None
@@ -463,15 +463,15 @@ class TestGetTextAuxiliaryClient:
                 return _Entry()
 
         with (
-            patch("agent.auxiliary_client.load_pool", return_value=_Pool()),
-            patch("agent.auxiliary_client.OpenAI"),
-            patch("hermes_cli.auth._read_codex_tokens", side_effect=AssertionError("legacy codex store should not run")),
+            patch("hermes_agent.providers.auxiliary.load_pool", return_value=_Pool()),
+            patch("hermes_agent.providers.auxiliary.OpenAI"),
+            patch("hermes_agent.cli.auth.auth._read_codex_tokens", side_effect=AssertionError("legacy codex store should not run")),
         ):
-            from agent.auxiliary_client import _try_codex
+            from hermes_agent.providers.auxiliary import _try_codex
 
             client, model = _try_codex()
 
-        from agent.auxiliary_client import CodexAuxiliaryClient
+        from hermes_agent.providers.auxiliary import CodexAuxiliaryClient
 
         assert isinstance(client, CodexAuxiliaryClient)
         assert model == "gpt-5.2-codex"
@@ -481,12 +481,12 @@ class TestNousAuxiliaryRefresh:
     def test_try_nous_prefers_runtime_credentials(self):
         fresh_base = "https://inference-api.nousresearch.com/v1"
         with (
-            patch("agent.auxiliary_client._read_nous_auth", return_value={"access_token": "stale-token"}),
-            patch("agent.auxiliary_client._resolve_nous_runtime_api", return_value=("fresh-agent-key", fresh_base)),
-            patch("hermes_cli.models.get_nous_recommended_aux_model", return_value=None),
-            patch("agent.auxiliary_client.OpenAI") as mock_openai,
+            patch("hermes_agent.providers.auxiliary._read_nous_auth", return_value={"access_token": "stale-token"}),
+            patch("hermes_agent.providers.auxiliary._resolve_nous_runtime_api", return_value=("fresh-agent-key", fresh_base)),
+            patch("hermes_agent.cli.models.models.get_nous_recommended_aux_model", return_value=None),
+            patch("hermes_agent.providers.auxiliary.OpenAI") as mock_openai,
         ):
-            from agent.auxiliary_client import _try_nous
+            from hermes_agent.providers.auxiliary import _try_nous
 
             mock_openai.return_value = MagicMock()
             client, model = _try_nous()
@@ -501,12 +501,12 @@ class TestNousAuxiliaryRefresh:
         """When the Portal recommends a compaction model, _try_nous honors it."""
         fresh_base = "https://inference-api.nousresearch.com/v1"
         with (
-            patch("agent.auxiliary_client._read_nous_auth", return_value={"access_token": "***"}),
-            patch("agent.auxiliary_client._resolve_nous_runtime_api", return_value=("fresh-agent-key", fresh_base)),
-            patch("hermes_cli.models.get_nous_recommended_aux_model", return_value="minimax/minimax-m2.7") as mock_rec,
-            patch("agent.auxiliary_client.OpenAI") as mock_openai,
+            patch("hermes_agent.providers.auxiliary._read_nous_auth", return_value={"access_token": "***"}),
+            patch("hermes_agent.providers.auxiliary._resolve_nous_runtime_api", return_value=("fresh-agent-key", fresh_base)),
+            patch("hermes_agent.cli.models.models.get_nous_recommended_aux_model", return_value="minimax/minimax-m2.7") as mock_rec,
+            patch("hermes_agent.providers.auxiliary.OpenAI") as mock_openai,
         ):
-            from agent.auxiliary_client import _try_nous
+            from hermes_agent.providers.auxiliary import _try_nous
 
             mock_openai.return_value = MagicMock()
             client, model = _try_nous(vision=False)
@@ -519,12 +519,12 @@ class TestNousAuxiliaryRefresh:
         """Vision tasks should ask for the vision-specific recommendation."""
         fresh_base = "https://inference-api.nousresearch.com/v1"
         with (
-            patch("agent.auxiliary_client._read_nous_auth", return_value={"access_token": "***"}),
-            patch("agent.auxiliary_client._resolve_nous_runtime_api", return_value=("fresh-agent-key", fresh_base)),
-            patch("hermes_cli.models.get_nous_recommended_aux_model", return_value="google/gemini-3-flash-preview") as mock_rec,
-            patch("agent.auxiliary_client.OpenAI"),
+            patch("hermes_agent.providers.auxiliary._read_nous_auth", return_value={"access_token": "***"}),
+            patch("hermes_agent.providers.auxiliary._resolve_nous_runtime_api", return_value=("fresh-agent-key", fresh_base)),
+            patch("hermes_agent.cli.models.models.get_nous_recommended_aux_model", return_value="google/gemini-3-flash-preview") as mock_rec,
+            patch("hermes_agent.providers.auxiliary.OpenAI"),
         ):
-            from agent.auxiliary_client import _try_nous
+            from hermes_agent.providers.auxiliary import _try_nous
             client, model = _try_nous(vision=True)
 
         assert client is not None
@@ -535,12 +535,12 @@ class TestNousAuxiliaryRefresh:
         """If the Portal lookup throws, we must still return a usable model."""
         fresh_base = "https://inference-api.nousresearch.com/v1"
         with (
-            patch("agent.auxiliary_client._read_nous_auth", return_value={"access_token": "***"}),
-            patch("agent.auxiliary_client._resolve_nous_runtime_api", return_value=("fresh-agent-key", fresh_base)),
-            patch("hermes_cli.models.get_nous_recommended_aux_model", side_effect=RuntimeError("portal down")),
-            patch("agent.auxiliary_client.OpenAI"),
+            patch("hermes_agent.providers.auxiliary._read_nous_auth", return_value={"access_token": "***"}),
+            patch("hermes_agent.providers.auxiliary._resolve_nous_runtime_api", return_value=("fresh-agent-key", fresh_base)),
+            patch("hermes_agent.cli.models.models.get_nous_recommended_aux_model", side_effect=RuntimeError("portal down")),
+            patch("hermes_agent.providers.auxiliary.OpenAI"),
         ):
-            from agent.auxiliary_client import _try_nous
+            from hermes_agent.providers.auxiliary import _try_nous
             client, model = _try_nous()
 
         assert client is not None
@@ -559,11 +559,11 @@ class TestNousAuxiliaryRefresh:
         fresh_client.chat.completions.create.return_value = {"ok": True}
 
         with (
-            patch("agent.auxiliary_client._resolve_task_provider_model", return_value=("nous", "nous-model", None, None, None)),
-            patch("agent.auxiliary_client._get_cached_client", return_value=(stale_client, "nous-model")),
-            patch("agent.auxiliary_client.OpenAI", return_value=fresh_client),
-            patch("agent.auxiliary_client._validate_llm_response", side_effect=lambda resp, _task: resp),
-            patch("agent.auxiliary_client._resolve_nous_runtime_api", return_value=("fresh-agent-key", "https://inference-api.nousresearch.com/v1")),
+            patch("hermes_agent.providers.auxiliary._resolve_task_provider_model", return_value=("nous", "nous-model", None, None, None)),
+            patch("hermes_agent.providers.auxiliary._get_cached_client", return_value=(stale_client, "nous-model")),
+            patch("hermes_agent.providers.auxiliary.OpenAI", return_value=fresh_client),
+            patch("hermes_agent.providers.auxiliary._validate_llm_response", side_effect=lambda resp, _task: resp),
+            patch("hermes_agent.providers.auxiliary._resolve_nous_runtime_api", return_value=("fresh-agent-key", "https://inference-api.nousresearch.com/v1")),
         ):
             result = call_llm(
                 task="compression",
@@ -588,11 +588,11 @@ class TestNousAuxiliaryRefresh:
         fresh_async_client.chat.completions.create = AsyncMock(return_value={"ok": True})
 
         with (
-            patch("agent.auxiliary_client._resolve_task_provider_model", return_value=("nous", "nous-model", None, None, None)),
-            patch("agent.auxiliary_client._get_cached_client", return_value=(stale_client, "nous-model")),
-            patch("agent.auxiliary_client._to_async_client", return_value=(fresh_async_client, "nous-model")),
-            patch("agent.auxiliary_client._validate_llm_response", side_effect=lambda resp, _task: resp),
-            patch("agent.auxiliary_client._resolve_nous_runtime_api", return_value=("fresh-agent-key", "https://inference-api.nousresearch.com/v1")),
+            patch("hermes_agent.providers.auxiliary._resolve_task_provider_model", return_value=("nous", "nous-model", None, None, None)),
+            patch("hermes_agent.providers.auxiliary._get_cached_client", return_value=(stale_client, "nous-model")),
+            patch("hermes_agent.providers.auxiliary._to_async_client", return_value=(fresh_async_client, "nous-model")),
+            patch("hermes_agent.providers.auxiliary._validate_llm_response", side_effect=lambda resp, _task: resp),
+            patch("hermes_agent.providers.auxiliary._resolve_nous_runtime_api", return_value=("fresh-agent-key", "https://inference-api.nousresearch.com/v1")),
         ):
             result = await async_call_llm(
                 task="session_search",
@@ -656,7 +656,7 @@ class TestGetProviderChain:
     def test_picks_up_patched_functions(self):
         """Patches on _try_* functions must be visible in the chain."""
         sentinel = lambda: ("patched", "model")
-        with patch("agent.auxiliary_client._try_openrouter", sentinel):
+        with patch("hermes_agent.providers.auxiliary._try_openrouter", sentinel):
             chain = _get_provider_chain()
         assert chain[0] == ("openrouter", sentinel)
 
@@ -666,21 +666,21 @@ class TestTryPaymentFallback:
 
     def test_skips_failed_provider(self):
         mock_client = MagicMock()
-        with patch("agent.auxiliary_client._try_openrouter", return_value=(None, None)), \
-             patch("agent.auxiliary_client._try_nous", return_value=(mock_client, "nous-model")), \
-             patch("agent.auxiliary_client._read_main_provider", return_value="openrouter"):
+        with patch("hermes_agent.providers.auxiliary._try_openrouter", return_value=(None, None)), \
+             patch("hermes_agent.providers.auxiliary._try_nous", return_value=(mock_client, "nous-model")), \
+             patch("hermes_agent.providers.auxiliary._read_main_provider", return_value="openrouter"):
             client, model, label = _try_payment_fallback("openrouter", task="compression")
         assert client is mock_client
         assert model == "nous-model"
         assert label == "nous"
 
     def test_returns_none_when_no_fallback(self):
-        with patch("agent.auxiliary_client._try_openrouter", return_value=(None, None)), \
-             patch("agent.auxiliary_client._try_nous", return_value=(None, None)), \
-             patch("agent.auxiliary_client._try_custom_endpoint", return_value=(None, None)), \
-             patch("agent.auxiliary_client._try_codex", return_value=(None, None)), \
-             patch("agent.auxiliary_client._resolve_api_key_provider", return_value=(None, None)), \
-             patch("agent.auxiliary_client._read_main_provider", return_value="openrouter"):
+        with patch("hermes_agent.providers.auxiliary._try_openrouter", return_value=(None, None)), \
+             patch("hermes_agent.providers.auxiliary._try_nous", return_value=(None, None)), \
+             patch("hermes_agent.providers.auxiliary._try_custom_endpoint", return_value=(None, None)), \
+             patch("hermes_agent.providers.auxiliary._try_codex", return_value=(None, None)), \
+             patch("hermes_agent.providers.auxiliary._resolve_api_key_provider", return_value=(None, None)), \
+             patch("hermes_agent.providers.auxiliary._read_main_provider", return_value="openrouter"):
             client, model, label = _try_payment_fallback("openrouter")
         assert client is None
         assert label == ""
@@ -688,20 +688,20 @@ class TestTryPaymentFallback:
     def test_codex_alias_maps_to_chain_label(self):
         """'codex' should map to 'openai-codex' in the skip set."""
         mock_client = MagicMock()
-        with patch("agent.auxiliary_client._try_openrouter", return_value=(mock_client, "or-model")), \
-             patch("agent.auxiliary_client._try_codex", return_value=(None, None)), \
-             patch("agent.auxiliary_client._read_main_provider", return_value="openai-codex"):
+        with patch("hermes_agent.providers.auxiliary._try_openrouter", return_value=(mock_client, "or-model")), \
+             patch("hermes_agent.providers.auxiliary._try_codex", return_value=(None, None)), \
+             patch("hermes_agent.providers.auxiliary._read_main_provider", return_value="openai-codex"):
             client, model, label = _try_payment_fallback("openai-codex", task="vision")
         assert client is mock_client
         assert label == "openrouter"
 
     def test_skips_to_codex_when_or_and_nous_fail(self):
         mock_codex = MagicMock()
-        with patch("agent.auxiliary_client._try_openrouter", return_value=(None, None)), \
-             patch("agent.auxiliary_client._try_nous", return_value=(None, None)), \
-             patch("agent.auxiliary_client._try_custom_endpoint", return_value=(None, None)), \
-             patch("agent.auxiliary_client._try_codex", return_value=(mock_codex, "gpt-5.2-codex")), \
-             patch("agent.auxiliary_client._read_main_provider", return_value="openrouter"):
+        with patch("hermes_agent.providers.auxiliary._try_openrouter", return_value=(None, None)), \
+             patch("hermes_agent.providers.auxiliary._try_nous", return_value=(None, None)), \
+             patch("hermes_agent.providers.auxiliary._try_custom_endpoint", return_value=(None, None)), \
+             patch("hermes_agent.providers.auxiliary._try_codex", return_value=(mock_codex, "gpt-5.2-codex")), \
+             patch("hermes_agent.providers.auxiliary._read_main_provider", return_value="openrouter"):
             client, model, label = _try_payment_fallback("openrouter")
         assert client is mock_codex
         assert model == "gpt-5.2-codex"
@@ -725,9 +725,9 @@ class TestCallLlmPaymentFallback:
         server_err.status_code = 500
         primary_client.chat.completions.create.side_effect = server_err
 
-        with patch("agent.auxiliary_client._get_cached_client",
+        with patch("hermes_agent.providers.auxiliary._get_cached_client",
                     return_value=(primary_client, "google/gemini-3-flash-preview")), \
-             patch("agent.auxiliary_client._resolve_task_provider_model",
+             patch("hermes_agent.providers.auxiliary._resolve_task_provider_model",
                     return_value=("auto", "google/gemini-3-flash-preview", None, None, None)):
             with pytest.raises(Exception, match="Internal Server Error"):
                 call_llm(
@@ -743,7 +743,7 @@ class TestCallLlmPaymentFallback:
 def test_resolve_api_key_provider_skips_unconfigured_anthropic(monkeypatch):
     """_resolve_api_key_provider must not try anthropic when user never configured it."""
     from collections import OrderedDict
-    from hermes_cli.auth import ProviderConfig
+    from hermes_agent.cli.auth.auth import ProviderConfig
 
     # Build a minimal registry with only "anthropic" so the loop is guaranteed
     # to reach it without being short-circuited by earlier providers.
@@ -763,14 +763,14 @@ def test_resolve_api_key_provider_skips_unconfigured_anthropic(monkeypatch):
         called.append("anthropic")
         return None, None
 
-    monkeypatch.setattr("agent.auxiliary_client._try_anthropic", mock_try_anthropic)
-    monkeypatch.setattr("hermes_cli.auth.PROVIDER_REGISTRY", fake_registry)
+    monkeypatch.setattr("hermes_agent.providers.auxiliary._try_anthropic", mock_try_anthropic)
+    monkeypatch.setattr("hermes_agent.cli.auth.auth.PROVIDER_REGISTRY", fake_registry)
     monkeypatch.setattr(
-        "hermes_cli.auth.is_provider_explicitly_configured",
+        "hermes_agent.cli.auth.auth.is_provider_explicitly_configured",
         lambda pid: False,
     )
 
-    from agent.auxiliary_client import _resolve_api_key_provider
+    from hermes_agent.providers.auxiliary import _resolve_api_key_provider
     _resolve_api_key_provider()
 
     assert "anthropic" not in called, \
@@ -796,28 +796,28 @@ class TestIsConnectionError:
     """Tests for _is_connection_error detection."""
 
     def test_connection_refused(self):
-        from agent.auxiliary_client import _is_connection_error
+        from hermes_agent.providers.auxiliary import _is_connection_error
         err = Exception("Connection refused")
         assert _is_connection_error(err) is True
 
     def test_timeout(self):
-        from agent.auxiliary_client import _is_connection_error
+        from hermes_agent.providers.auxiliary import _is_connection_error
         err = Exception("Request timed out.")
         assert _is_connection_error(err) is True
 
     def test_dns_failure(self):
-        from agent.auxiliary_client import _is_connection_error
+        from hermes_agent.providers.auxiliary import _is_connection_error
         err = Exception("Name or service not known")
         assert _is_connection_error(err) is True
 
     def test_normal_api_error_not_connection(self):
-        from agent.auxiliary_client import _is_connection_error
+        from hermes_agent.providers.auxiliary import _is_connection_error
         err = Exception("Bad Request: invalid model")
         err.status_code = 400
         assert _is_connection_error(err) is False
 
     def test_500_not_connection(self):
-        from agent.auxiliary_client import _is_connection_error
+        from hermes_agent.providers.auxiliary import _is_connection_error
         err = Exception("Internal Server Error")
         err.status_code = 500
         assert _is_connection_error(err) is False
@@ -850,7 +850,7 @@ class TestKimiTemperatureOmitted:
     )
     def test_kimi_models_omit_temperature(self, model):
         """No kimi model should have a temperature key in kwargs."""
-        from agent.auxiliary_client import _build_call_kwargs
+        from hermes_agent.providers.auxiliary import _build_call_kwargs
 
         kwargs = _build_call_kwargs(
             provider="kimi-coding",
@@ -863,7 +863,7 @@ class TestKimiTemperatureOmitted:
 
     def test_kimi_for_coding_no_temperature_when_none(self):
         """When caller passes temperature=None, still no temperature key."""
-        from agent.auxiliary_client import _build_call_kwargs
+        from hermes_agent.providers.auxiliary import _build_call_kwargs
 
         kwargs = _build_call_kwargs(
             provider="kimi-coding",
@@ -881,10 +881,10 @@ class TestKimiTemperatureOmitted:
         client.chat.completions.create.return_value = response
 
         with patch(
-            "agent.auxiliary_client._get_cached_client",
+            "hermes_agent.providers.auxiliary._get_cached_client",
             return_value=(client, "kimi-for-coding"),
         ), patch(
-            "agent.auxiliary_client._resolve_task_provider_model",
+            "hermes_agent.providers.auxiliary._resolve_task_provider_model",
             return_value=("auto", "kimi-for-coding", None, None, None),
         ):
             result = call_llm(
@@ -906,10 +906,10 @@ class TestKimiTemperatureOmitted:
         client.chat.completions.create = AsyncMock(return_value=response)
 
         with patch(
-            "agent.auxiliary_client._get_cached_client",
+            "hermes_agent.providers.auxiliary._get_cached_client",
             return_value=(client, "kimi-for-coding"),
         ), patch(
-            "agent.auxiliary_client._resolve_task_provider_model",
+            "hermes_agent.providers.auxiliary._resolve_task_provider_model",
             return_value=("auto", "kimi-for-coding", None, None, None),
         ):
             result = await async_call_llm(
@@ -932,7 +932,7 @@ class TestKimiTemperatureOmitted:
         ],
     )
     def test_non_kimi_models_preserve_temperature(self, model):
-        from agent.auxiliary_client import _build_call_kwargs
+        from hermes_agent.providers.auxiliary import _build_call_kwargs
 
         kwargs = _build_call_kwargs(
             provider="openrouter",
@@ -953,7 +953,7 @@ class TestKimiTemperatureOmitted:
     )
     def test_kimi_k2_5_omits_temperature_regardless_of_endpoint(self, base_url):
         """Temperature is omitted regardless of which Kimi endpoint is used."""
-        from agent.auxiliary_client import _build_call_kwargs
+        from hermes_agent.providers.auxiliary import _build_call_kwargs
 
         kwargs = _build_call_kwargs(
             provider="kimi-coding",
@@ -976,15 +976,15 @@ class TestStaleBaseUrlWarning:
 
     def test_warns_when_openai_base_url_set_with_named_provider(self, monkeypatch, caplog):
         """Warning fires when OPENAI_BASE_URL is set but provider is a named provider."""
-        import agent.auxiliary_client as mod
+        import hermes_agent.providers.auxiliary as mod
         # Reset the module-level flag so the warning fires
         monkeypatch.setattr(mod, "_stale_base_url_warned", False)
         monkeypatch.setenv("OPENAI_BASE_URL", "http://localhost:11434/v1")
         monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-test")
 
-        with patch("agent.auxiliary_client._read_main_provider", return_value="openrouter"), \
-             patch("agent.auxiliary_client._read_main_model", return_value="google/gemini-flash"), \
-             caplog.at_level(logging.WARNING, logger="agent.auxiliary_client"):
+        with patch("hermes_agent.providers.auxiliary._read_main_provider", return_value="openrouter"), \
+             patch("hermes_agent.providers.auxiliary._read_main_model", return_value="google/gemini-flash"), \
+             caplog.at_level(logging.WARNING, logger="hermes_agent.providers.auxiliary"):
             _resolve_auto()
 
         assert any("OPENAI_BASE_URL is set" in rec.message for rec in caplog.records), \
@@ -1010,8 +1010,8 @@ class TestAuxiliaryTaskExtraBody:
             }
         }
 
-        with patch("hermes_cli.config.load_config", return_value=config), patch(
-            "agent.auxiliary_client._get_cached_client",
+        with patch("hermes_agent.cli.config.load_config", return_value=config), patch(
+            "hermes_agent.providers.auxiliary._get_cached_client",
             return_value=(client, "glm-4.5-air"),
         ):
             result = call_llm(
@@ -1041,8 +1041,8 @@ class TestAuxiliaryTaskExtraBody:
             }
         }
 
-        with patch("hermes_cli.config.load_config", return_value=config), patch(
-            "agent.auxiliary_client._get_cached_client",
+        with patch("hermes_agent.cli.config.load_config", return_value=config), patch(
+            "hermes_agent.providers.auxiliary._get_cached_client",
             return_value=(client, "glm-4.5-air"),
         ):
             result = await async_call_llm(
@@ -1057,17 +1057,17 @@ class TestAuxiliaryTaskExtraBody:
 
     def test_no_warning_when_provider_is_custom(self, monkeypatch, caplog):
         """No warning when the provider is 'custom' — OPENAI_BASE_URL is expected."""
-        import agent.auxiliary_client as mod
+        import hermes_agent.providers.auxiliary as mod
         monkeypatch.setattr(mod, "_stale_base_url_warned", False)
         monkeypatch.setenv("OPENAI_BASE_URL", "http://localhost:11434/v1")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
-        with patch("agent.auxiliary_client._read_main_provider", return_value="custom"), \
-             patch("agent.auxiliary_client._read_main_model", return_value="llama3"), \
-             patch("agent.auxiliary_client._resolve_custom_runtime",
+        with patch("hermes_agent.providers.auxiliary._read_main_provider", return_value="custom"), \
+             patch("hermes_agent.providers.auxiliary._read_main_model", return_value="llama3"), \
+             patch("hermes_agent.providers.auxiliary._resolve_custom_runtime",
                    return_value=("http://localhost:11434/v1", "test-key", None)), \
-             patch("agent.auxiliary_client.OpenAI") as mock_openai, \
-             caplog.at_level(logging.WARNING, logger="agent.auxiliary_client"):
+             patch("hermes_agent.providers.auxiliary.OpenAI") as mock_openai, \
+             caplog.at_level(logging.WARNING, logger="hermes_agent.providers.auxiliary"):
             mock_openai.return_value = MagicMock()
             _resolve_auto()
 
@@ -1076,16 +1076,16 @@ class TestAuxiliaryTaskExtraBody:
 
     def test_no_warning_when_provider_is_named_custom(self, monkeypatch, caplog):
         """No warning when the provider is 'custom:myname' — base_url comes from config."""
-        import agent.auxiliary_client as mod
+        import hermes_agent.providers.auxiliary as mod
         monkeypatch.setattr(mod, "_stale_base_url_warned", False)
         monkeypatch.setenv("OPENAI_BASE_URL", "http://localhost:11434/v1")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
-        with patch("agent.auxiliary_client._read_main_provider", return_value="custom:ollama-local"), \
-             patch("agent.auxiliary_client._read_main_model", return_value="llama3"), \
-             patch("agent.auxiliary_client.resolve_provider_client",
+        with patch("hermes_agent.providers.auxiliary._read_main_provider", return_value="custom:ollama-local"), \
+             patch("hermes_agent.providers.auxiliary._read_main_model", return_value="llama3"), \
+             patch("hermes_agent.providers.auxiliary.resolve_provider_client",
                    return_value=(MagicMock(), "llama3")), \
-             caplog.at_level(logging.WARNING, logger="agent.auxiliary_client"):
+             caplog.at_level(logging.WARNING, logger="hermes_agent.providers.auxiliary"):
             _resolve_auto()
 
         assert not any("OPENAI_BASE_URL is set" in rec.message for rec in caplog.records), \
@@ -1093,14 +1093,14 @@ class TestAuxiliaryTaskExtraBody:
 
     def test_no_warning_when_openai_base_url_not_set(self, monkeypatch, caplog):
         """No warning when OPENAI_BASE_URL is absent."""
-        import agent.auxiliary_client as mod
+        import hermes_agent.providers.auxiliary as mod
         monkeypatch.setattr(mod, "_stale_base_url_warned", False)
         monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
         monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-test")
 
-        with patch("agent.auxiliary_client._read_main_provider", return_value="openrouter"), \
-             patch("agent.auxiliary_client._read_main_model", return_value="google/gemini-flash"), \
-             caplog.at_level(logging.WARNING, logger="agent.auxiliary_client"):
+        with patch("hermes_agent.providers.auxiliary._read_main_provider", return_value="openrouter"), \
+             patch("hermes_agent.providers.auxiliary._read_main_model", return_value="google/gemini-flash"), \
+             caplog.at_level(logging.WARNING, logger="hermes_agent.providers.auxiliary"):
             _resolve_auto()
 
         assert not any("OPENAI_BASE_URL is set" in rec.message for rec in caplog.records), \
@@ -1114,23 +1114,23 @@ class TestAnthropicCompatImageConversion:
     """Tests for _is_anthropic_compat_endpoint and _convert_openai_images_to_anthropic."""
 
     def test_known_providers_detected(self):
-        from agent.auxiliary_client import _is_anthropic_compat_endpoint
+        from hermes_agent.providers.auxiliary import _is_anthropic_compat_endpoint
         assert _is_anthropic_compat_endpoint("minimax", "")
         assert _is_anthropic_compat_endpoint("minimax-cn", "")
 
     def test_openrouter_not_detected(self):
-        from agent.auxiliary_client import _is_anthropic_compat_endpoint
+        from hermes_agent.providers.auxiliary import _is_anthropic_compat_endpoint
         assert not _is_anthropic_compat_endpoint("openrouter", "")
         assert not _is_anthropic_compat_endpoint("anthropic", "")
 
     def test_url_based_detection(self):
-        from agent.auxiliary_client import _is_anthropic_compat_endpoint
+        from hermes_agent.providers.auxiliary import _is_anthropic_compat_endpoint
         assert _is_anthropic_compat_endpoint("custom", "https://api.minimax.io/anthropic")
         assert _is_anthropic_compat_endpoint("custom", "https://example.com/anthropic/v1")
         assert not _is_anthropic_compat_endpoint("custom", "https://api.openai.com/v1")
 
     def test_base64_image_converted(self):
-        from agent.auxiliary_client import _convert_openai_images_to_anthropic
+        from hermes_agent.providers.auxiliary import _convert_openai_images_to_anthropic
         messages = [{
             "role": "user",
             "content": [
@@ -1146,7 +1146,7 @@ class TestAnthropicCompatImageConversion:
         assert img_block["source"]["data"] == "iVBOR="
 
     def test_url_image_converted(self):
-        from agent.auxiliary_client import _convert_openai_images_to_anthropic
+        from hermes_agent.providers.auxiliary import _convert_openai_images_to_anthropic
         messages = [{
             "role": "user",
             "content": [
@@ -1160,13 +1160,13 @@ class TestAnthropicCompatImageConversion:
         assert img_block["source"]["url"] == "https://example.com/img.jpg"
 
     def test_text_only_messages_unchanged(self):
-        from agent.auxiliary_client import _convert_openai_images_to_anthropic
+        from hermes_agent.providers.auxiliary import _convert_openai_images_to_anthropic
         messages = [{"role": "user", "content": "Hello"}]
         result = _convert_openai_images_to_anthropic(messages)
         assert result[0] is messages[0]  # same object, not copied
 
     def test_jpeg_media_type_parsed(self):
-        from agent.auxiliary_client import _convert_openai_images_to_anthropic
+        from hermes_agent.providers.auxiliary import _convert_openai_images_to_anthropic
         messages = [{
             "role": "user",
             "content": [

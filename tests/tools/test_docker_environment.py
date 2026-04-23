@@ -6,7 +6,7 @@ import types
 
 import pytest
 
-from tools.environments import docker as docker_env
+from hermes_agent.backends import docker as docker_env
 
 
 def _mock_subprocess_run(monkeypatch):

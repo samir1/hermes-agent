@@ -5,8 +5,8 @@ Provides a FastAPI backend serving the Vite/React frontend and REST API
 endpoints for managing configuration, environment variables, and sessions.
 
 Usage:
-    python -m hermes_cli.main web          # Start on http://127.0.0.1:9119
-    python -m hermes_cli.main web --port 8080
+    python -m hermes_agent.cli.main web          # Start on http://127.0.0.1:9119
+    python -m hermes_agent.cli.main web --port 8080
 """
 
 import asyncio
@@ -28,11 +28,9 @@ from typing import Any, Dict, List, Optional
 import yaml
 
 PROJECT_ROOT = Path(__file__).parent.parent.resolve()
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
 
-from hermes_cli import __version__, __release_date__
-from hermes_cli.config import (
+from hermes_agent.cli import __version__, __release_date__
+from hermes_agent.cli.config import (
     DEFAULT_CONFIG,
     OPTIONAL_ENV_VARS,
     get_config_path,
@@ -46,7 +44,7 @@ from hermes_cli.config import (
     check_config_version,
     redact_key,
 )
-from gateway.status import get_running_pid, read_runtime_status
+from hermes_agent.gateway.status import get_running_pid, read_runtime_status
 
 try:
     from fastapi import FastAPI, HTTPException, Request
@@ -296,7 +294,7 @@ _SCHEMA_OVERRIDES: Dict[str, Dict[str, Any]] = {
         "description": "Log level for agent.log",
         "options": ["DEBUG", "INFO", "WARNING", "ERROR"],
     },
-    "agent.service_tier": {
+    "hermes_agent.agent.service_tier": {
         "type": "select",
         "description": "API service tier (OpenAI/Anthropic)",
         "options": ["", "auto", "default", "flex"],
@@ -485,7 +483,7 @@ async def get_status():
     gateway_updated_at = None
     configured_gateway_platforms: set[str] | None = None
     try:
-        from gateway.config import load_gateway_config
+        from hermes_agent.gateway.config import load_gateway_config
 
         gateway_config = load_gateway_config()
         configured_gateway_platforms = {
@@ -528,7 +526,7 @@ async def get_status():
 
     active_sessions = 0
     try:
-        from hermes_state import SessionDB
+        from hermes_agent.state import SessionDB
         db = SessionDB()
         try:
             sessions = db.list_sessions_rich(limit=50)
@@ -588,7 +586,7 @@ _ACTION_PROCS: Dict[str, subprocess.Popen] = {}
 def _spawn_hermes_action(subcommand: List[str], name: str) -> subprocess.Popen:
     """Spawn ``hermes <subcommand>`` detached and record the Popen handle.
 
-    Uses the running interpreter's ``hermes_cli.main`` module so the action
+    Uses the running interpreter's ``hermes_agent.cli.main`` module so the action
     inherits the same venv/PYTHONPATH the web server is using.
     """
     log_file_name = _ACTION_LOG_FILES[name]
@@ -599,7 +597,7 @@ def _spawn_hermes_action(subcommand: List[str], name: str) -> subprocess.Popen:
         f"\n=== {name} started {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n".encode()
     )
 
-    cmd = [sys.executable, "-m", "hermes_cli.main", *subcommand]
+    cmd = [sys.executable, "-m", "hermes_agent.cli.main", *subcommand]
 
     popen_kwargs: Dict[str, Any] = {
         "cwd": str(PROJECT_ROOT),
@@ -697,7 +695,7 @@ async def get_action_status(name: str, lines: int = 200):
 @app.get("/api/sessions")
 async def get_sessions(limit: int = 20, offset: int = 0):
     try:
-        from hermes_state import SessionDB
+        from hermes_agent.state import SessionDB
         db = SessionDB()
         try:
             sessions = db.list_sessions_rich(limit=limit, offset=offset)
@@ -722,7 +720,7 @@ async def search_sessions(q: str = "", limit: int = 20):
     if not q or not q.strip():
         return {"results": []}
     try:
-        from hermes_state import SessionDB
+        from hermes_agent.state import SessionDB
         db = SessionDB()
         try:
             # Auto-add prefix wildcards so partial words match
@@ -838,7 +836,7 @@ def get_model_info():
         # Resolve auto-detected context length (pass config_ctx=None to get
         # purely auto-detected value, then separately report the override)
         try:
-            from agent.model_metadata import get_model_context_length
+            from hermes_agent.providers.metadata import get_model_context_length
             auto_ctx = get_model_context_length(
                 model=model_name,
                 base_url=base_url,
@@ -858,7 +856,7 @@ def get_model_info():
         # Try to get model capabilities from models.dev
         caps = {}
         try:
-            from agent.models_dev import get_model_capabilities
+            from hermes_agent.providers.metadata_dev import get_model_capabilities
             mc = get_model_capabilities(provider=provider, model=model_name)
             if mc is not None:
                 caps = {
@@ -1062,7 +1060,7 @@ def _anthropic_oauth_status() -> Dict[str, Any]:
     The dashboard reports the highest-priority source that's actually present.
     """
     try:
-        from agent.anthropic_adapter import (
+        from hermes_agent.providers.anthropic_adapter import (
             read_hermes_oauth_credentials,
             read_claude_code_credentials,
             _HERMES_OAUTH_FILE,
@@ -1125,7 +1123,7 @@ def _claude_code_only_status() -> Dict[str, Any]:
     when they also have a separate Hermes-managed PKCE login.
     """
     try:
-        from agent.anthropic_adapter import read_claude_code_credentials
+        from hermes_agent.providers.anthropic_adapter import read_claude_code_credentials
         creds = read_claude_code_credentials()
     except Exception:
         creds = None
@@ -1200,7 +1198,7 @@ def _resolve_provider_status(provider_id: str, status_fn) -> Dict[str, Any]:
         except Exception as e:
             return {"logged_in": False, "error": str(e)}
     try:
-        from hermes_cli import auth as hauth
+        from hermes_agent.cli import auth as hauth
         if provider_id == "nous":
             raw = hauth.get_nous_auth_status()
             return {
@@ -1288,14 +1286,14 @@ async def disconnect_oauth_provider(provider_id: str, request: Request):
     # want to undo a disconnect.
     if provider_id in ("anthropic", "claude-code"):
         try:
-            from agent.anthropic_adapter import _HERMES_OAUTH_FILE
+            from hermes_agent.providers.anthropic_adapter import _HERMES_OAUTH_FILE
             if _HERMES_OAUTH_FILE.exists():
                 _HERMES_OAUTH_FILE.unlink()
         except Exception:
             pass
         # Also clear the credential pool entry if present.
         try:
-            from hermes_cli.auth import clear_provider_auth
+            from hermes_agent.cli.auth.auth import clear_provider_auth
             clear_provider_auth("anthropic")
         except Exception:
             pass
@@ -1303,7 +1301,7 @@ async def disconnect_oauth_provider(provider_id: str, request: Request):
         return {"ok": True, "provider": provider_id}
 
     try:
-        from hermes_cli.auth import clear_provider_auth
+        from hermes_agent.cli.auth.auth import clear_provider_auth
         cleared = clear_provider_auth(provider_id)
         _log.info("oauth/disconnect: %s (cleared=%s)", provider_id, cleared)
         return {"ok": bool(cleared), "provider": provider_id}
@@ -1356,7 +1354,7 @@ _oauth_sessions_lock = threading.Lock()
 # Guarded so hermes web still starts if anthropic_adapter is unavailable;
 # Phase 2 endpoints will return 501 in that case.
 try:
-    from agent.anthropic_adapter import (
+    from hermes_agent.providers.anthropic_adapter import (
         _OAUTH_CLIENT_ID as _ANTHROPIC_OAUTH_CLIENT_ID,
         _OAUTH_TOKEN_URL as _ANTHROPIC_OAUTH_TOKEN_URL,
         _OAUTH_REDIRECT_URI as _ANTHROPIC_OAUTH_REDIRECT_URI,
@@ -1400,7 +1398,7 @@ def _save_anthropic_oauth_creds(access_token: str, refresh_token: str, expires_a
     Mirrors what auth_commands.add_command does so the dashboard flow leaves
     the system in the same state as ``hermes auth add anthropic``.
     """
-    from agent.anthropic_adapter import _HERMES_OAUTH_FILE
+    from hermes_agent.providers.anthropic_adapter import _HERMES_OAUTH_FILE
     payload = {
         "accessToken": access_token,
         "refreshToken": refresh_token,
@@ -1412,7 +1410,7 @@ def _save_anthropic_oauth_creds(access_token: str, refresh_token: str, expires_a
     # the file write — pool registration only matters for the rotation
     # strategy, not for runtime credential resolution.
     try:
-        from agent.credential_pool import (
+        from hermes_agent.providers.credential_pool import (
             PooledCredential,
             load_pool,
             AUTH_TYPE_OAUTH,
@@ -1539,9 +1537,9 @@ async def _start_device_code_flow(provider_id: str) -> Dict[str, Any]:
     then spawns a background poller. Returns the user-facing display fields
     so the UI can render the verification page link + user code.
     """
-    from hermes_cli import auth as hauth
+    from hermes_agent.cli import auth as hauth
     if provider_id == "nous":
-        from hermes_cli.auth import _request_device_code, PROVIDER_REGISTRY
+        from hermes_agent.cli.auth.auth import _request_device_code, PROVIDER_REGISTRY
         import httpx
         pconfig = PROVIDER_REGISTRY["nous"]
         portal_base_url = (
@@ -1618,7 +1616,7 @@ async def _start_device_code_flow(provider_id: str) -> Dict[str, Any]:
 
 def _nous_poller(session_id: str) -> None:
     """Background poller that drives a Nous device-code flow to completion."""
-    from hermes_cli.auth import _poll_for_token, refresh_nous_oauth_from_state
+    from hermes_agent.cli.auth.auth import _poll_for_token, refresh_nous_oauth_from_state
     from datetime import datetime, timezone
     import httpx
     with _oauth_sessions_lock:
@@ -1662,7 +1660,7 @@ def _nous_poller(session_id: str) -> None:
             auth_state, min_key_ttl_seconds=300, timeout_seconds=15.0,
             force_refresh=False, force_mint=True,
         )
-        from hermes_cli.auth import persist_nous_credentials
+        from hermes_agent.cli.auth.auth import persist_nous_credentials
         persist_nous_credentials(full_state)
         with _oauth_sessions_lock:
             sess["status"] = "approved"
@@ -1691,7 +1689,7 @@ def _codex_full_login_worker(session_id: str) -> None:
     """
     try:
         import httpx
-        from hermes_cli.auth import (
+        from hermes_agent.cli.auth.auth import (
             CODEX_OAUTH_CLIENT_ID,
             CODEX_OAUTH_TOKEN_URL,
             DEFAULT_CODEX_BASE_URL,
@@ -1775,7 +1773,7 @@ def _codex_full_login_worker(session_id: str) -> None:
             raise RuntimeError("token exchange did not return access_token")
 
         # Persist via credential pool — same shape as auth_commands.add_command
-        from agent.credential_pool import (
+        from hermes_agent.providers.credential_pool import (
             PooledCredential,
             load_pool,
             AUTH_TYPE_OAUTH,
@@ -1889,7 +1887,7 @@ async def cancel_oauth_session(session_id: str, request: Request):
 
 @app.get("/api/sessions/{session_id}")
 async def get_session_detail(session_id: str):
-    from hermes_state import SessionDB
+    from hermes_agent.state import SessionDB
     db = SessionDB()
     try:
         sid = db.resolve_session_id(session_id)
@@ -1903,7 +1901,7 @@ async def get_session_detail(session_id: str):
 
 @app.get("/api/sessions/{session_id}/messages")
 async def get_session_messages(session_id: str):
-    from hermes_state import SessionDB
+    from hermes_agent.state import SessionDB
     db = SessionDB()
     try:
         sid = db.resolve_session_id(session_id)
@@ -1917,7 +1915,7 @@ async def get_session_messages(session_id: str):
 
 @app.delete("/api/sessions/{session_id}")
 async def delete_session_endpoint(session_id: str):
-    from hermes_state import SessionDB
+    from hermes_agent.state import SessionDB
     db = SessionDB()
     try:
         if not db.delete_session(session_id):
@@ -1940,7 +1938,7 @@ async def get_logs(
     component: Optional[str] = None,
     search: Optional[str] = None,
 ):
-    from hermes_cli.logs import _read_tail, LOG_FILES
+    from hermes_agent.cli.logs import _read_tail, LOG_FILES
 
     log_name = LOG_FILES.get(file)
     if not log_name:
@@ -1950,7 +1948,7 @@ async def get_logs(
         return {"file": file, "lines": []}
 
     try:
-        from hermes_logging import COMPONENT_PREFIXES
+        from hermes_agent.logging import COMPONENT_PREFIXES
     except ImportError:
         COMPONENT_PREFIXES = {}
 
@@ -2003,13 +2001,13 @@ class CronJobUpdate(BaseModel):
 
 @app.get("/api/cron/jobs")
 async def list_cron_jobs():
-    from cron.jobs import list_jobs
+    from hermes_agent.cron.jobs import list_jobs
     return list_jobs(include_disabled=True)
 
 
 @app.get("/api/cron/jobs/{job_id}")
 async def get_cron_job(job_id: str):
-    from cron.jobs import get_job
+    from hermes_agent.cron.jobs import get_job
     job = get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -2018,7 +2016,7 @@ async def get_cron_job(job_id: str):
 
 @app.post("/api/cron/jobs")
 async def create_cron_job(body: CronJobCreate):
-    from cron.jobs import create_job
+    from hermes_agent.cron.jobs import create_job
     try:
         job = create_job(prompt=body.prompt, schedule=body.schedule,
                          name=body.name, deliver=body.deliver)
@@ -2030,7 +2028,7 @@ async def create_cron_job(body: CronJobCreate):
 
 @app.put("/api/cron/jobs/{job_id}")
 async def update_cron_job(job_id: str, body: CronJobUpdate):
-    from cron.jobs import update_job
+    from hermes_agent.cron.jobs import update_job
     job = update_job(job_id, body.updates)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -2039,7 +2037,7 @@ async def update_cron_job(job_id: str, body: CronJobUpdate):
 
 @app.post("/api/cron/jobs/{job_id}/pause")
 async def pause_cron_job(job_id: str):
-    from cron.jobs import pause_job
+    from hermes_agent.cron.jobs import pause_job
     job = pause_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -2048,7 +2046,7 @@ async def pause_cron_job(job_id: str):
 
 @app.post("/api/cron/jobs/{job_id}/resume")
 async def resume_cron_job(job_id: str):
-    from cron.jobs import resume_job
+    from hermes_agent.cron.jobs import resume_job
     job = resume_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -2057,7 +2055,7 @@ async def resume_cron_job(job_id: str):
 
 @app.post("/api/cron/jobs/{job_id}/trigger")
 async def trigger_cron_job(job_id: str):
-    from cron.jobs import trigger_job
+    from hermes_agent.cron.jobs import trigger_job
     job = trigger_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -2066,7 +2064,7 @@ async def trigger_cron_job(job_id: str):
 
 @app.delete("/api/cron/jobs/{job_id}")
 async def delete_cron_job(job_id: str):
-    from cron.jobs import remove_job
+    from hermes_agent.cron.jobs import remove_job
     if not remove_job(job_id):
         raise HTTPException(status_code=404, detail="Job not found")
     return {"ok": True}
@@ -2084,8 +2082,8 @@ class SkillToggle(BaseModel):
 
 @app.get("/api/skills")
 async def get_skills():
-    from tools.skills_tool import _find_all_skills
-    from hermes_cli.skills_config import get_disabled_skills
+    from hermes_agent.tools.skills.tool import _find_all_skills
+    from hermes_agent.cli.skills_config import get_disabled_skills
     config = load_config()
     disabled = get_disabled_skills(config)
     skills = _find_all_skills(skip_disabled=True)
@@ -2096,7 +2094,7 @@ async def get_skills():
 
 @app.put("/api/skills/toggle")
 async def toggle_skill(body: SkillToggle):
-    from hermes_cli.skills_config import get_disabled_skills, save_disabled_skills
+    from hermes_agent.cli.skills_config import get_disabled_skills, save_disabled_skills
     config = load_config()
     disabled = get_disabled_skills(config)
     if body.enabled:
@@ -2109,12 +2107,12 @@ async def toggle_skill(body: SkillToggle):
 
 @app.get("/api/tools/toolsets")
 async def get_toolsets():
-    from hermes_cli.tools_config import (
+    from hermes_agent.cli.tools_config import (
         _get_effective_configurable_toolsets,
         _get_platform_tools,
         _toolset_has_keys,
     )
-    from toolsets import resolve_toolset
+    from hermes_agent.tools.toolsets import resolve_toolset
 
     config = load_config()
     enabled_toolsets = _get_platform_tools(
@@ -2175,8 +2173,8 @@ async def update_config_raw(body: RawConfigUpdate):
 
 @app.get("/api/analytics/usage")
 async def get_usage_analytics(days: int = 30):
-    from hermes_state import SessionDB
-    from agent.insights import InsightsEngine
+    from hermes_agent.state import SessionDB
+    from hermes_agent.agent.insights import InsightsEngine
 
     db = SessionDB()
     try:

@@ -3,11 +3,11 @@ import threading
 import time
 from unittest.mock import patch
 
-import cli as cli_module
-import tools.skills_tool as skills_tool_module
-from cli import HermesCLI
-from hermes_cli.callbacks import prompt_for_secret
-from tools.skills_tool import set_secret_capture_callback
+import hermes_agent.cli.repl as cli_module
+import hermes_agent.tools.skills.tool as skills_tool_module
+from hermes_agent.cli.repl import HermesCLI
+from hermes_agent.cli.ui.callbacks import prompt_for_secret
+from hermes_agent.tools.skills.tool import set_secret_capture_callback
 
 
 class _FakeBuffer:
@@ -40,7 +40,7 @@ def test_secret_capture_callback_can_be_completed_from_cli_state_machine():
     cli = _make_cli_stub(with_app=True)
     results = []
 
-    with patch("hermes_cli.callbacks.save_env_value_secure") as save_secret:
+    with patch("hermes_agent.cli.ui.callbacks.save_env_value_secure") as save_secret:
         save_secret.return_value = {
             "success": True,
             "stored_as": "TENOR_API_KEY",
@@ -86,8 +86,8 @@ def test_cancel_secret_capture_marks_setup_skipped():
 def test_secret_capture_uses_getpass_without_tui():
     cli = _make_cli_stub()
 
-    with patch("hermes_cli.callbacks.getpass.getpass", return_value="secret-value"), patch(
-        "hermes_cli.callbacks.save_env_value_secure"
+    with patch("hermes_agent.cli.ui.callbacks.getpass.getpass", return_value="secret-value"), patch(
+        "hermes_agent.cli.ui.callbacks.save_env_value_secure"
     ) as save_secret:
         save_secret.return_value = {
             "success": True,
@@ -110,8 +110,8 @@ def test_secret_capture_timeout_clears_hidden_input_buffer():
 
     cli._clear_secret_input_buffer = clear_buffer
 
-    with patch("hermes_cli.callbacks.queue.Queue.get", side_effect=queue.Empty), patch(
-        "hermes_cli.callbacks._time.monotonic",
+    with patch("hermes_agent.cli.ui.callbacks.queue.Queue.get", side_effect=queue.Empty), patch(
+        "hermes_agent.cli.ui.callbacks._time.monotonic",
         side_effect=[0, 121],
     ):
         result = prompt_for_secret(cli, "TENOR_API_KEY", "Tenor API key")
@@ -134,7 +134,7 @@ def test_cli_chat_registers_secret_capture_callback():
         "terminal": {"env_type": "local"},
     }
 
-    with patch("cli.get_tool_definitions", return_value=[]), patch.dict(
+    with patch("hermes_agent.cli.repl.get_tool_definitions", return_value=[]), patch.dict(
         "os.environ", {"LLM_MODEL": "", "HERMES_MAX_ITERATIONS": ""}, clear=False
     ), patch.dict(cli_module.__dict__, {"CLI_CONFIG": clean_config}):
         cli_obj = HermesCLI()

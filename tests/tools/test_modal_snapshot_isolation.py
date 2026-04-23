@@ -35,7 +35,7 @@ def _restore_tool_modules():
         for name, module in sys.modules.items()
         if name == "tools"
         or name.startswith("tools.")
-        or name == "hermes_cli"
+        or name == "hermes_agent.cli"
         or name.startswith("hermes_cli.")
         or name == "modal"
         or name.startswith("modal.")
@@ -47,7 +47,7 @@ def _restore_tool_modules():
             os.environ.pop("HERMES_HOME", None)
         else:
             os.environ["HERMES_HOME"] = original_hermes_home
-        _reset_modules(("tools", "hermes_cli", "modal"))
+        _reset_modules(("tools", "hermes_agent.cli", "modal"))
         sys.modules.update(original_modules)
 
 
@@ -57,14 +57,14 @@ def _install_modal_test_modules(
     fail_on_snapshot_ids: set[str] | None = None,
     snapshot_id: str = "im-fresh",
 ):
-    _reset_modules(("tools", "hermes_cli", "modal"))
+    _reset_modules(("tools", "hermes_agent.cli", "modal"))
 
-    hermes_cli = types.ModuleType("hermes_cli")
+    hermes_cli = types.ModuleType("hermes_agent.cli")
     hermes_cli.__path__ = []  # type: ignore[attr-defined]
-    sys.modules["hermes_cli"] = hermes_cli
+    sys.modules["hermes_agent.cli"] = hermes_cli
     hermes_home = tmp_path / "hermes-home"
     os.environ["HERMES_HOME"] = str(hermes_home)
-    sys.modules["hermes_cli.config"] = types.SimpleNamespace(
+    sys.modules["hermes_agent.cli.config"] = types.SimpleNamespace(
         get_hermes_home=lambda: hermes_home,
     )
 
@@ -72,9 +72,9 @@ def _install_modal_test_modules(
     tools_package.__path__ = [str(TOOLS_DIR)]  # type: ignore[attr-defined]
     sys.modules["tools"] = tools_package
 
-    env_package = types.ModuleType("tools.environments")
+    env_package = types.ModuleType("hermes_agent.backends")
     env_package.__path__ = [str(TOOLS_DIR / "environments")]  # type: ignore[attr-defined]
-    sys.modules["tools.environments"] = env_package
+    sys.modules["hermes_agent.backends"] = env_package
 
     class _DummyBaseEnvironment:
         def __init__(self, cwd: str, timeout: int, env=None):
@@ -114,15 +114,15 @@ def _install_modal_test_modules(
         except OSError:
             return None
 
-    sys.modules["tools.environments.base"] = types.SimpleNamespace(
+    sys.modules["hermes_agent.backends.base"] = types.SimpleNamespace(
         BaseEnvironment=_DummyBaseEnvironment,
         _ThreadedProcessHandle=_DummyThreadedProcessHandle,
         _load_json_store=_load_json_store,
         _save_json_store=_save_json_store,
         _file_mtime_key=_file_mtime_key,
     )
-    sys.modules["tools.interrupt"] = types.SimpleNamespace(is_interrupted=lambda: False)
-    sys.modules["tools.credential_files"] = types.SimpleNamespace(
+    sys.modules["hermes_agent.tools.interrupt"] = types.SimpleNamespace(is_interrupted=lambda: False)
+    sys.modules["hermes_agent.tools.credential_files"] = types.SimpleNamespace(
         get_credential_file_mounts=lambda: [],
         iter_skills_files=lambda **kw: [],
         iter_cache_files=lambda **kw: [],
@@ -203,7 +203,7 @@ def test_modal_environment_migrates_legacy_snapshot_key_and_uses_snapshot_id(tmp
     snapshot_store.parent.mkdir(parents=True, exist_ok=True)
     snapshot_store.write_text(json.dumps({"task-legacy": "im-legacy123"}))
 
-    modal_module = _load_module("tools.environments.modal", TOOLS_DIR / "environments" / "modal.py")
+    modal_module = _load_module("hermes_agent.backends.modal", TOOLS_DIR / "environments" / "modal.py")
     env = modal_module.ModalEnvironment(image="python:3.11", task_id="task-legacy")
 
     try:
@@ -220,7 +220,7 @@ def test_modal_environment_prunes_stale_direct_snapshot_and_retries_base_image(t
     snapshot_store.parent.mkdir(parents=True, exist_ok=True)
     snapshot_store.write_text(json.dumps({"direct:task-stale": "im-stale123"}))
 
-    modal_module = _load_module("tools.environments.modal", TOOLS_DIR / "environments" / "modal.py")
+    modal_module = _load_module("hermes_agent.backends.modal", TOOLS_DIR / "environments" / "modal.py")
     env = modal_module.ModalEnvironment(image="python:3.11", task_id="task-stale")
 
     try:
@@ -237,7 +237,7 @@ def test_modal_environment_cleanup_writes_namespaced_snapshot_key(tmp_path):
     state = _install_modal_test_modules(tmp_path, snapshot_id="im-cleanup456")
     snapshot_store = state["snapshot_store"]
 
-    modal_module = _load_module("tools.environments.modal", TOOLS_DIR / "environments" / "modal.py")
+    modal_module = _load_module("hermes_agent.backends.modal", TOOLS_DIR / "environments" / "modal.py")
     env = modal_module.ModalEnvironment(image="python:3.11", task_id="task-cleanup")
     env.cleanup()
 
@@ -246,7 +246,7 @@ def test_modal_environment_cleanup_writes_namespaced_snapshot_key(tmp_path):
 
 def test_resolve_modal_image_uses_snapshot_ids_and_registry_images(tmp_path):
     state = _install_modal_test_modules(tmp_path)
-    modal_module = _load_module("tools.environments.modal", TOOLS_DIR / "environments" / "modal.py")
+    modal_module = _load_module("hermes_agent.backends.modal", TOOLS_DIR / "environments" / "modal.py")
 
     snapshot_image = modal_module._resolve_modal_image("im-snapshot123")
     registry_image = modal_module._resolve_modal_image("python:3.11")

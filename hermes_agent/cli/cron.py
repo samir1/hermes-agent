@@ -11,9 +11,8 @@ from pathlib import Path
 from typing import Iterable, List, Optional
 
 PROJECT_ROOT = Path(__file__).parent.parent.resolve()
-sys.path.insert(0, str(PROJECT_ROOT))
 
-from hermes_cli.colors import Colors, color
+from hermes_agent.cli.ui.colors import Colors, color
 
 
 def _normalize_skills(single_skill=None, skills: Optional[Iterable[str]] = None) -> Optional[List[str]]:
@@ -33,14 +32,14 @@ def _normalize_skills(single_skill=None, skills: Optional[Iterable[str]] = None)
 
 
 def _cron_api(**kwargs):
-    from tools.cronjob_tools import cronjob as cronjob_tool
+    from hermes_agent.tools.cronjob import cronjob as cronjob_tool
 
     return json.loads(cronjob_tool(**kwargs))
 
 
 def cron_list(show_all: bool = False):
     """List all scheduled jobs."""
-    from cron.jobs import list_jobs
+    from hermes_agent.cron.jobs import list_jobs
 
     jobs = list_jobs(include_disabled=show_all)
 
@@ -110,7 +109,7 @@ def cron_list(show_all: bool = False):
 
         print()
 
-    from hermes_cli.gateway import find_gateway_pids
+    from hermes_agent.cli.gateway import find_gateway_pids
     if not find_gateway_pids():
         print(color("  ⚠  Gateway is not running — jobs won't fire automatically.", Colors.YELLOW))
         print(color("     Start it with: hermes gateway install", Colors.DIM))
@@ -120,14 +119,14 @@ def cron_list(show_all: bool = False):
 
 def cron_tick():
     """Run due jobs once and exit."""
-    from cron.scheduler import tick
+    from hermes_agent.cron.scheduler import tick
     tick(verbose=True)
 
 
 def cron_status():
     """Show cron execution status."""
-    from cron.jobs import list_jobs
-    from hermes_cli.gateway import find_gateway_pids
+    from hermes_agent.cron.jobs import list_jobs
+    from hermes_agent.cli.gateway import find_gateway_pids
 
     print()
 
@@ -185,7 +184,7 @@ def cron_create(args):
 
 
 def cron_edit(args):
-    from cron.jobs import get_job
+    from hermes_agent.cron.jobs import get_job
 
     job = get_job(args.job_id)
     if not job:

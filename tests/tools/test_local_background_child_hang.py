@@ -16,7 +16,7 @@ import time
 
 import pytest
 
-from tools.environments.local import LocalEnvironment
+from hermes_agent.backends.local import LocalEnvironment
 
 
 def _pkill(pattern: str) -> None:

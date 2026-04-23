@@ -9,8 +9,8 @@ import os
 import pytest
 from unittest.mock import MagicMock, patch
 
-from agent.memory_provider import MemoryProvider
-from agent.memory_manager import MemoryManager
+from hermes_agent.agent.memory.provider import MemoryProvider
+from hermes_agent.agent.memory.manager import MemoryManager
 
 
 # ---------------------------------------------------------------------------
@@ -138,11 +138,11 @@ class TestMem0UserIdScoping:
 
     def test_gateway_user_id_overrides_default(self):
         """When user_id is passed via kwargs, it should override the config default."""
-        from plugins.memory.mem0 import Mem0MemoryProvider
+        from hermes_agent.plugins.memory.mem0 import Mem0MemoryProvider
 
         provider = Mem0MemoryProvider()
         # Mock _load_config to return a config with default user_id
-        with patch("plugins.memory.mem0._load_config", return_value={
+        with patch("hermes_agent.plugins.memory.mem0._load_config", return_value={
             "api_key": "test-key",
             "user_id": "hermes-user",
             "agent_id": "hermes",
@@ -154,10 +154,10 @@ class TestMem0UserIdScoping:
 
     def test_no_user_id_falls_back_to_config(self):
         """Without user_id in kwargs, should use config default."""
-        from plugins.memory.mem0 import Mem0MemoryProvider
+        from hermes_agent.plugins.memory.mem0 import Mem0MemoryProvider
 
         provider = Mem0MemoryProvider()
-        with patch("plugins.memory.mem0._load_config", return_value={
+        with patch("hermes_agent.plugins.memory.mem0._load_config", return_value={
             "api_key": "test-key",
             "user_id": "custom-default",
             "agent_id": "hermes",
@@ -169,10 +169,10 @@ class TestMem0UserIdScoping:
 
     def test_no_user_id_no_config_uses_hermes_user(self):
         """Without user_id or config override, should default to 'hermes-user'."""
-        from plugins.memory.mem0 import Mem0MemoryProvider
+        from hermes_agent.plugins.memory.mem0 import Mem0MemoryProvider
 
         provider = Mem0MemoryProvider()
-        with patch("plugins.memory.mem0._load_config", return_value={
+        with patch("hermes_agent.plugins.memory.mem0._load_config", return_value={
             "api_key": "test-key",
             "agent_id": "hermes",
             "rerank": True,
@@ -183,12 +183,12 @@ class TestMem0UserIdScoping:
 
     def test_different_users_get_different_ids(self):
         """Two providers initialized with different user_ids should be scoped differently."""
-        from plugins.memory.mem0 import Mem0MemoryProvider
+        from hermes_agent.plugins.memory.mem0 import Mem0MemoryProvider
 
         p1 = Mem0MemoryProvider()
         p2 = Mem0MemoryProvider()
 
-        with patch("plugins.memory.mem0._load_config", return_value={
+        with patch("hermes_agent.plugins.memory.mem0._load_config", return_value={
             "api_key": "test-key",
             "user_id": "hermes-user",
             "agent_id": "hermes",
@@ -212,7 +212,7 @@ class TestHonchoUserIdScoping:
 
     def test_gateway_user_id_is_passed_as_runtime_peer(self):
         """Gateway user_id should scope Honcho sessions without mutating config peer_name."""
-        from plugins.memory.honcho import HonchoMemoryProvider
+        from hermes_agent.plugins.memory.honcho import HonchoMemoryProvider
 
         provider = HonchoMemoryProvider()
 
@@ -232,13 +232,13 @@ class TestHonchoUserIdScoping:
         mock_cfg.session_strategy = "shared"
 
         with patch(
-            "plugins.memory.honcho.client.HonchoClientConfig.from_global_config",
+            "hermes_agent.plugins.memory.honcho.client.HonchoClientConfig.from_global_config",
             return_value=mock_cfg,
         ), patch(
-            "plugins.memory.honcho.client.get_honcho_client",
+            "hermes_agent.plugins.memory.honcho.client.get_honcho_client",
             return_value=MagicMock(),
         ), patch(
-            "plugins.memory.honcho.session.HonchoSessionManager",
+            "hermes_agent.plugins.memory.honcho.session.HonchoSessionManager",
         ) as mock_manager_cls:
             mock_manager = MagicMock()
             mock_manager.get_or_create.return_value = MagicMock(messages=[])
@@ -254,7 +254,7 @@ class TestHonchoUserIdScoping:
 
     def test_session_manager_prefers_runtime_user_id_over_config_peer_name(self):
         """Session manager should isolate gateway users even when config peer_name is static."""
-        from plugins.memory.honcho.session import HonchoSessionManager
+        from hermes_agent.plugins.memory.honcho.session import HonchoSessionManager
 
         mock_cfg = MagicMock()
         mock_cfg.peer_name = "static-user"
@@ -286,7 +286,7 @@ class TestHonchoUserIdScoping:
 
     def test_no_user_id_preserves_config_peer_name(self):
         """Without user_id, the config peer_name should be preserved."""
-        from plugins.memory.honcho import HonchoMemoryProvider
+        from hermes_agent.plugins.memory.honcho import HonchoMemoryProvider
 
         provider = HonchoMemoryProvider()
 
@@ -298,7 +298,7 @@ class TestHonchoUserIdScoping:
         mock_cfg.recall_mode = "tools"
 
         with patch(
-            "plugins.memory.honcho.client.HonchoClientConfig.from_global_config",
+            "hermes_agent.plugins.memory.honcho.client.HonchoClientConfig.from_global_config",
             return_value=mock_cfg,
         ):
             provider.initialize(
@@ -321,7 +321,7 @@ class TestAIAgentUserIdPropagation:
     def test_user_id_stored_on_agent(self):
         """AIAgent should store user_id as instance attribute."""
         with patch.dict(os.environ, {"HERMES_HOME": "/tmp/test_hermes"}):
-            from run_agent import AIAgent
+            from hermes_agent.agent.loop import AIAgent
             agent = object.__new__(AIAgent)
             # Manually set the attribute as __init__ does
             agent._user_id = "test_user_42"
@@ -330,7 +330,7 @@ class TestAIAgentUserIdPropagation:
     def test_user_id_none_by_default(self):
         """AIAgent should have None user_id when not provided (CLI mode)."""
         with patch.dict(os.environ, {"HERMES_HOME": "/tmp/test_hermes"}):
-            from run_agent import AIAgent
+            from hermes_agent.agent.loop import AIAgent
             agent = object.__new__(AIAgent)
             agent._user_id = None
             assert agent._user_id is None

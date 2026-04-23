@@ -4,9 +4,9 @@ from unittest.mock import patch
 
 from rich.console import Console
 
-import hermes_cli.banner as banner
-import model_tools
-import tools.mcp_tool
+import hermes_agent.cli.ui.banner as banner
+import hermes_agent.tools.dispatch
+import hermes_agent.tools.mcp.tool
 
 
 def test_display_toolset_name_strips_legacy_suffix():

@@ -20,10 +20,8 @@ from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-
-from tools.environments.local import LocalEnvironment
-from tools.file_operations import ShellFileOperations
+from hermes_agent.backends.local import LocalEnvironment
+from hermes_agent.tools.files.operations import ShellFileOperations
 
 
 # ── Shared noise detection ───────────────────────────────────────────────

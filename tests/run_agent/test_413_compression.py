@@ -17,9 +17,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from agent.context_compressor import SUMMARY_PREFIX
-from run_agent import AIAgent
-import run_agent
+from hermes_agent.agent.context.compressor import SUMMARY_PREFIX
+from hermes_agent.agent.loop import AIAgent
+import hermes_agent.agent.loop
 
 
 # ---------------------------------------------------------------------------
@@ -81,9 +81,9 @@ def _make_413_error(*, use_status_code=True, message="Request entity too large")
 @pytest.fixture()
 def agent():
     with (
-        patch("run_agent.get_tool_definitions", return_value=_make_tool_defs("web_search")),
-        patch("run_agent.check_toolset_requirements", return_value={}),
-        patch("run_agent.OpenAI"),
+        patch("hermes_agent.agent.loop.get_tool_definitions", return_value=_make_tool_defs("web_search")),
+        patch("hermes_agent.agent.loop.check_toolset_requirements", return_value={}),
+        patch("hermes_agent.agent.loop.OpenAI"),
     ):
         a = AIAgent(
             api_key="test-key-1234567890",
@@ -539,7 +539,7 @@ class TestToolResultPreflightCompression:
         large_result = "x" * 100_000
 
         with (
-            patch("run_agent.handle_function_call", return_value=large_result),
+            patch("hermes_agent.agent.loop.handle_function_call", return_value=large_result),
             patch.object(agent, "_compress_context") as mock_compress,
             patch.object(agent, "_persist_session"),
             patch.object(agent, "_save_trajectory"),

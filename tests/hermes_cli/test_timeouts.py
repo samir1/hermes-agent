@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import textwrap
 
-from hermes_cli.timeouts import (
+from hermes_agent.cli.timeouts import (
     get_provider_request_timeout,
     get_provider_stale_timeout,
 )
@@ -134,7 +134,7 @@ def test_anthropic_adapter_honors_timeout_kwarg():
     """build_anthropic_client(timeout=X) overrides the 900s default read timeout."""
     pytest = __import__("pytest")
     anthropic = pytest.importorskip("anthropic")  # skip if optional SDK missing
-    from agent.anthropic_adapter import build_anthropic_client
+    from hermes_agent.providers.anthropic_adapter import build_anthropic_client
 
     c_default = build_anthropic_client("sk-ant-dummy", None)
     c_custom = build_anthropic_client("sk-ant-dummy", None, timeout=45.0)
@@ -166,7 +166,7 @@ def test_resolved_api_call_timeout_priority(monkeypatch, tmp_path):
         """)
     monkeypatch.setenv("HERMES_API_TIMEOUT", "999")
 
-    from run_agent import AIAgent
+    from hermes_agent.agent.loop import AIAgent
     agent = AIAgent(
         model="openai/gpt-4o-mini",
         provider="openrouter",
@@ -188,11 +188,11 @@ def test_resolved_api_call_timeout_priority(monkeypatch, tmp_path):
     _write_config(tmp_path, "")
     # Clear the cached config load
     import importlib
-    from hermes_cli import config as cfg_mod
+    from hermes_agent.cli import config as cfg_mod
     importlib.reload(cfg_mod)
-    from hermes_cli import timeouts as to_mod
+    from hermes_agent.cli import timeouts as to_mod
     importlib.reload(to_mod)
-    import run_agent as ra_mod
+    import hermes_agent.agent.loop as ra_mod
     importlib.reload(ra_mod)
 
     agent2 = ra_mod.AIAgent(
@@ -227,7 +227,7 @@ def test_resolved_api_call_stale_timeout_priority(monkeypatch, tmp_path):
         """)
     monkeypatch.setenv("HERMES_API_CALL_STALE_TIMEOUT", "999")
 
-    from run_agent import AIAgent
+    from hermes_agent.agent.loop import AIAgent
     agent = AIAgent(
         model="gpt-5.4",
         provider="openai-codex",
@@ -245,11 +245,11 @@ def test_resolved_api_call_stale_timeout_priority(monkeypatch, tmp_path):
 
     _write_config(tmp_path, "")
     import importlib
-    from hermes_cli import config as cfg_mod
+    from hermes_agent.cli import config as cfg_mod
     importlib.reload(cfg_mod)
-    from hermes_cli import timeouts as to_mod
+    from hermes_agent.cli import timeouts as to_mod
     importlib.reload(to_mod)
-    import run_agent as ra_mod
+    import hermes_agent.agent.loop as ra_mod
     importlib.reload(ra_mod)
 
     agent2 = ra_mod.AIAgent(
@@ -273,7 +273,7 @@ def test_default_non_stream_stale_timeout_auto_disables_for_local_endpoints(monk
     (tmp_path / ".env").write_text("", encoding="utf-8")
     monkeypatch.delenv("HERMES_API_CALL_STALE_TIMEOUT", raising=False)
 
-    from run_agent import AIAgent
+    from hermes_agent.agent.loop import AIAgent
     agent = AIAgent(
         model="qwen3:32b",
         provider="ollama-local",
@@ -293,7 +293,7 @@ def test_explicit_non_stream_stale_timeout_is_honored_for_local_endpoints(monkey
     (tmp_path / ".env").write_text("", encoding="utf-8")
     monkeypatch.setenv("HERMES_API_CALL_STALE_TIMEOUT", "300")
 
-    from run_agent import AIAgent
+    from hermes_agent.agent.loop import AIAgent
     agent = AIAgent(
         model="qwen3:32b",
         provider="ollama-local",

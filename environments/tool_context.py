@@ -31,9 +31,9 @@ from typing import Any, Dict, List, Optional
 import asyncio
 import concurrent.futures
 
-from model_tools import handle_function_call
-from tools.terminal_tool import cleanup_vm
-from tools.browser_tool import cleanup_browser
+from hermes_agent.tools.dispatch import handle_function_call
+from hermes_agent.tools.terminal import cleanup_vm
+from hermes_agent.tools.browser.tool import cleanup_browser
 
 logger = logging.getLogger(__name__)
 
@@ -446,7 +446,7 @@ class ToolContext:
         """
         # Kill any background processes from this rollout (safety net)
         try:
-            from tools.process_registry import process_registry
+            from hermes_agent.tools.process_registry import process_registry
             killed = process_registry.kill_all(task_id=self.task_id)
             if killed:
                 logger.debug("Process cleanup for task %s: killed %d process(es)", self.task_id, killed)

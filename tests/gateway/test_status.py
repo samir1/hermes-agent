@@ -4,7 +4,7 @@ import json
 import os
 from types import SimpleNamespace
 
-from gateway import status
+from hermes_agent.gateway import status
 
 
 class TestGatewayPidState:
@@ -57,7 +57,7 @@ class TestGatewayPidState:
         pid_path.write_text(json.dumps({
             "pid": os.getpid(),
             "kind": "hermes-gateway",
-            "argv": ["python", "-m", "hermes_cli.main", "gateway"],
+            "argv": ["python", "-m", "hermes_agent.cli.main", "gateway"],
             "start_time": 123,
         }))
 
@@ -94,7 +94,7 @@ class TestGatewayPidState:
         pid_path.write_text(json.dumps({
             "pid": os.getpid(),
             "kind": "hermes-gateway",
-            "argv": ["python", "-m", "hermes_cli.main", "gateway"],
+            "argv": ["python", "-m", "hermes_agent.cli.main", "gateway"],
             "start_time": 123,
         }))
 

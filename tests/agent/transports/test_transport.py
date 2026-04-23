@@ -4,9 +4,9 @@ import pytest
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-from agent.transports.base import ProviderTransport
-from agent.transports.types import NormalizedResponse, ToolCall, Usage
-from agent.transports import get_transport, register_transport, _REGISTRY
+from hermes_agent.providers.base import ProviderTransport
+from hermes_agent.providers.types import NormalizedResponse, ToolCall, Usage
+from hermes_agent.providers import get_transport, register_transport, _REGISTRY
 
 
 # ── ABC contract tests ──────────────────────────────────────────────────
@@ -55,7 +55,7 @@ class TestTransportRegistry:
         assert get_transport("nonexistent_mode") is None
 
     def test_anthropic_registered_on_import(self):
-        import agent.transports.anthropic  # noqa: F401
+        import hermes_agent.providers.anthropic_transport  # noqa: F401
         t = get_transport("anthropic_messages")
         assert t is not None
         assert t.api_mode == "anthropic_messages"
@@ -87,7 +87,7 @@ class TestAnthropicTransport:
 
     @pytest.fixture
     def transport(self):
-        import agent.transports.anthropic  # noqa: F401
+        import hermes_agent.providers.anthropic_transport  # noqa: F401
         return get_transport("anthropic_messages")
 
     def test_api_mode(self, transport):

@@ -5,17 +5,17 @@ Used by the restructure mover (Task 2) and later by the migration script.
 
 MOVE_MAP: dict[str, str] = {
     # === Top-level modules (section 1a) ===
-    "run_agent.py": "hermes_agent/agent/loop.py",
-    "cli.py": "hermes_agent/cli/repl.py",
-    "model_tools.py": "hermes_agent/tools/dispatch.py",
-    "toolsets.py": "hermes_agent/tools/toolsets.py",
-    "toolset_distributions.py": "hermes_agent/tools/distributions.py",
-    "mcp_serve.py": "hermes_agent/tools/mcp/serve.py",
-    "utils.py": "hermes_agent/utils.py",
-    "hermes_constants.py": "hermes_agent/constants.py",
-    "hermes_state.py": "hermes_agent/state.py",
-    "hermes_logging.py": "hermes_agent/logging.py",
-    "hermes_time.py": "hermes_agent/time.py",
+    "hermes_agent/agent/loop.py": "hermes_agent/agent/loop.py",
+    "hermes_agent/cli/repl.py": "hermes_agent/cli/repl.py",
+    "hermes_agent/tools/dispatch.py": "hermes_agent/tools/dispatch.py",
+    "hermes_agent/tools/toolsets.py": "hermes_agent/tools/toolsets.py",
+    "hermes_agent/tools/distributions.py": "hermes_agent/tools/distributions.py",
+    "hermes_agent.tools.mcp.serve.py": "hermes_agent/tools/mcp/serve.py",
+    "hermes_agent.utils.py": "hermes_agent/utils.py",
+    "hermes_agent.constants.py": "hermes_agent/constants.py",
+    "hermes_agent.state.py": "hermes_agent/state.py",
+    "hermes_agent.logging.py": "hermes_agent/logging.py",
+    "hermes_agent.time.py": "hermes_agent/time.py",
 
     # === agent/ → hermes_agent/agent/ (section 1b, stays in agent) ===
     "agent/__init__.py": "hermes_agent/agent/__init__.py",

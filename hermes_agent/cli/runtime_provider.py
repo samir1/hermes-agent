@@ -9,9 +9,9 @@ from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
-from hermes_cli import auth as auth_mod
-from agent.credential_pool import CredentialPool, PooledCredential, get_custom_provider_pool_key, load_pool
-from hermes_cli.auth import (
+from hermes_agent.cli import auth as auth_mod
+from hermes_agent.providers.credential_pool import CredentialPool, PooledCredential, get_custom_provider_pool_key, load_pool
+from hermes_agent.cli.auth.auth import (
     AuthError,
     DEFAULT_CODEX_BASE_URL,
     DEFAULT_QWEN_BASE_URL,
@@ -27,9 +27,9 @@ from hermes_cli.auth import (
     resolve_external_process_provider_credentials,
     has_usable_secret,
 )
-from hermes_cli.config import get_compatible_custom_providers, load_config
-from hermes_constants import OPENROUTER_BASE_URL
-from utils import base_url_host_matches, base_url_hostname
+from hermes_agent.cli.config import get_compatible_custom_providers, load_config
+from hermes_agent.constants import OPENROUTER_BASE_URL
+from hermes_agent.utils import base_url_host_matches, base_url_hostname
 
 
 def _normalize_custom_provider_name(value: str) -> str:
@@ -134,7 +134,7 @@ def _copilot_runtime_api_mode(model_cfg: Dict[str, Any], api_key: str) -> str:
         return "chat_completions"
 
     try:
-        from hermes_cli.models import copilot_model_api_mode
+        from hermes_agent.cli.models.models import copilot_model_api_mode
 
         return copilot_model_api_mode(model_name, api_key=api_key)
     except Exception:
@@ -206,7 +206,7 @@ def _resolve_runtime_from_pool_entry(
         if configured_mode and _provider_supports_explicit_api_mode(provider, configured_provider):
             api_mode = configured_mode
         elif provider in ("opencode-zen", "opencode-go"):
-            from hermes_cli.models import opencode_model_api_mode
+            from hermes_agent.cli.models.models import opencode_model_api_mode
             api_mode = opencode_model_api_mode(provider, model_cfg.get("default", ""))
         else:
             # Auto-detect Anthropic-compatible endpoints (/anthropic suffix,
@@ -567,7 +567,7 @@ def _resolve_explicit_runtime(
         base_url = explicit_base_url or cfg_base_url or "https://api.anthropic.com"
         api_key = explicit_api_key
         if not api_key:
-            from agent.anthropic_adapter import resolve_anthropic_token
+            from hermes_agent.providers.anthropic_adapter import resolve_anthropic_token
 
             api_key = resolve_anthropic_token()
             if not api_key:
@@ -870,7 +870,7 @@ def resolve_runtime_provider(
 
     # Anthropic (native Messages API)
     if provider == "anthropic":
-        from agent.anthropic_adapter import resolve_anthropic_token
+        from hermes_agent.providers.anthropic_adapter import resolve_anthropic_token
         token = resolve_anthropic_token()
         if not token:
             raise AuthError(
@@ -896,7 +896,7 @@ def resolve_runtime_provider(
 
     # AWS Bedrock (native Converse API via boto3)
     if provider == "bedrock":
-        from agent.bedrock_adapter import (
+        from hermes_agent.providers.bedrock_adapter import (
             has_aws_credentials,
             resolve_aws_auth_env_var,
             resolve_bedrock_region,
@@ -989,7 +989,7 @@ def resolve_runtime_provider(
             if configured_mode and _provider_supports_explicit_api_mode(provider, configured_provider):
                 api_mode = configured_mode
             elif provider in ("opencode-zen", "opencode-go"):
-                from hermes_cli.models import opencode_model_api_mode
+                from hermes_agent.cli.models.models import opencode_model_api_mode
                 api_mode = opencode_model_api_mode(provider, model_cfg.get("default", ""))
             else:
                 # Auto-detect Anthropic-compatible endpoints by URL convention

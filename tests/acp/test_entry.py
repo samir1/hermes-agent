@@ -2,7 +2,7 @@
 
 import acp
 
-from acp_adapter import entry
+from hermes_agent.acp import entry
 
 
 def test_main_enables_unstable_protocol(monkeypatch):
@@ -13,7 +13,7 @@ def test_main_enables_unstable_protocol(monkeypatch):
 
     monkeypatch.setattr(entry, "_setup_logging", lambda: None)
     monkeypatch.setattr(entry, "_load_env", lambda: None)
-    monkeypatch.setattr(acp, "run_agent", fake_run_agent)
+    monkeypatch.setattr(acp, "hermes_agent.agent.loop", fake_run_agent)
 
     entry.main()
 

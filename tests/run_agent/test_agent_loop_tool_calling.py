@@ -33,8 +33,6 @@ import pytest
 # Ensure repo root is importable
 _repo_root = Path(__file__).resolve().parent.parent.parent
 if str(_repo_root) not in sys.path:
-    sys.path.insert(0, str(_repo_root))
-
 try:
     from environments.agent_loop import AgentResult, HermesAgentLoop
     from atroposlib.envs.server_handling.openai_server import OpenAIServer  # noqa: F401

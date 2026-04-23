@@ -14,7 +14,7 @@ Features:
 - Support for dynamic toolset resolution
 
 Usage:
-    from toolsets import get_toolset, resolve_toolset, get_all_toolsets
+    from hermes_agent.tools.toolsets import get_toolset, resolve_toolset, get_all_toolsets
     
     # Get tools for a specific toolset
     tools = get_toolset("research")
@@ -432,7 +432,7 @@ def get_toolset(name: str) -> Optional[Dict[str, Any]]:
         return toolset
 
     try:
-        from tools.registry import registry
+        from hermes_agent.tools.registry import registry
     except Exception:
         return None
 
@@ -541,7 +541,7 @@ def _get_plugin_toolset_names() -> Set[str]:
     ``TOOLSETS`` dict — i.e. they were added by plugins at load time.
     """
     try:
-        from tools.registry import registry
+        from hermes_agent.tools.registry import registry
         return {
             toolset_name
             for toolset_name in registry.get_registered_toolset_names()
@@ -554,7 +554,7 @@ def _get_plugin_toolset_names() -> Set[str]:
 def _get_registry_toolset_aliases() -> Dict[str, str]:
     """Return explicit toolset aliases registered in the live registry."""
     try:
-        from tools.registry import registry
+        from hermes_agent.tools.registry import registry
         return registry.get_registered_toolset_aliases()
     except Exception:
         return {}

@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 import pytest
 
-from tools.homeassistant_tool import (
+from hermes_agent.tools.homeassistant import (
     _check_ha_available,
     _filter_and_summarize,
     _build_service_payload,
@@ -313,7 +313,7 @@ class TestEntityIdValidation:
 class TestCallServiceStringData:
     """data param may arrive as a JSON string (XML tool calling mode)."""
 
-    @patch("tools.homeassistant_tool._run_async", return_value={"success": True})
+    @patch("hermes_agent.tools.homeassistant._run_async", return_value={"success": True})
     def test_string_data_deserialized(self, mock_run):
         """JSON string data is parsed into a dict before dispatch."""
         _handle_call_service({
@@ -325,7 +325,7 @@ class TestCallServiceStringData:
         call_args = mock_run.call_args[0][0]  # the coroutine arg
         # _run_async was called, meaning we got past validation
 
-    @patch("tools.homeassistant_tool._run_async", return_value={"success": True})
+    @patch("hermes_agent.tools.homeassistant._run_async", return_value={"success": True})
     def test_dict_data_passthrough(self, mock_run):
         """Dict data (JSON tool calling mode) still works unchanged."""
         _handle_call_service({
@@ -347,7 +347,7 @@ class TestCallServiceStringData:
         assert "error" in result
         assert "Invalid JSON" in result["error"]
 
-    @patch("tools.homeassistant_tool._run_async", return_value={"success": True})
+    @patch("hermes_agent.tools.homeassistant._run_async", return_value={"success": True})
     def test_empty_string_data_becomes_none(self, mock_run):
         """Empty/whitespace string data is treated as None."""
         _handle_call_service({
@@ -472,7 +472,7 @@ class TestCheckAvailable:
 
 class TestGetHeaders:
     def test_bearer_token_format(self, monkeypatch):
-        monkeypatch.setattr("tools.homeassistant_tool._HASS_TOKEN", "my-secret-token")
+        monkeypatch.setattr("hermes_agent.tools.homeassistant._HASS_TOKEN", "my-secret-token")
         headers = _get_headers()
         assert headers["Authorization"] == "Bearer my-secret-token"
         assert headers["Content-Type"] == "application/json"
@@ -485,7 +485,7 @@ class TestGetHeaders:
 
 class TestRegistration:
     def test_tools_registered_in_registry(self):
-        from tools.registry import registry
+        from hermes_agent.tools.registry import registry
 
         names = registry.get_all_tool_names()
         assert "ha_list_entities" in names
@@ -493,7 +493,7 @@ class TestRegistration:
         assert "ha_call_service" in names
 
     def test_tools_in_homeassistant_toolset(self):
-        from tools.registry import registry
+        from hermes_agent.tools.registry import registry
 
         toolset_map = registry.get_tool_to_toolset_map()
         for tool in ("ha_list_entities", "ha_get_state", "ha_call_service"):
@@ -501,7 +501,7 @@ class TestRegistration:
 
     def test_check_fn_gates_availability(self, monkeypatch):
         """Registry should exclude HA tools when HASS_TOKEN is not set."""
-        from tools.registry import registry
+        from hermes_agent.tools.registry import registry
 
         monkeypatch.delenv("HASS_TOKEN", raising=False)
         defs = registry.get_definitions({"ha_list_entities", "ha_get_state", "ha_call_service"})
@@ -509,7 +509,7 @@ class TestRegistration:
 
     def test_check_fn_includes_when_token_set(self, monkeypatch):
         """Registry should include HA tools when HASS_TOKEN is set."""
-        from tools.registry import registry
+        from hermes_agent.tools.registry import registry
 
         monkeypatch.setenv("HASS_TOKEN", "test-token")
         defs = registry.get_definitions({"ha_list_entities", "ha_get_state", "ha_call_service"})

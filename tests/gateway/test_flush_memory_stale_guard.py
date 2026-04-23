@@ -23,7 +23,7 @@ def _mock_dotenv(monkeypatch):
 
 
 def _make_runner():
-    from gateway.run import GatewayRunner
+    from hermes_agent.gateway.run import GatewayRunner
 
     runner = object.__new__(GatewayRunner)
     runner._honcho_managers = {}
@@ -71,9 +71,9 @@ class TestCronSessionBypass:
 def _make_flush_context(monkeypatch, memory_dir=None):
     """Return (runner, tmp_agent, fake_run_agent) with run_agent mocked in sys.modules."""
     tmp_agent = MagicMock()
-    fake_run_agent = types.ModuleType("run_agent")
+    fake_run_agent = types.ModuleType("hermes_agent.agent.loop")
     fake_run_agent.AIAgent = MagicMock(return_value=tmp_agent)
-    monkeypatch.setitem(sys.modules, "run_agent", fake_run_agent)
+    monkeypatch.setitem(sys.modules, "hermes_agent.agent.loop", fake_run_agent)
 
     runner = _make_runner()
     runner.session_store.load_transcript.return_value = _TRANSCRIPT_4_MSGS
@@ -93,9 +93,9 @@ class TestMemoryInjection:
         runner, tmp_agent, _ = _make_flush_context(monkeypatch, memory_dir)
 
         with (
-            patch("gateway.run._resolve_runtime_agent_kwargs", return_value={"api_key": "k"}),
-            patch("gateway.run._resolve_gateway_model", return_value="test-model"),
-            patch.dict("sys.modules", {"tools.memory_tool": MagicMock(get_memory_dir=lambda: memory_dir)}),
+            patch("hermes_agent.gateway.run._resolve_runtime_agent_kwargs", return_value={"api_key": "k"}),
+            patch("hermes_agent.gateway.run._resolve_gateway_model", return_value="test-model"),
+            patch.dict("sys.modules", {"hermes_agent.tools.memory": MagicMock(get_memory_dir=lambda: memory_dir)}),
         ):
             runner._flush_memories_for_session("session_123")
 
@@ -117,9 +117,9 @@ class TestMemoryInjection:
         runner, tmp_agent, _ = _make_flush_context(monkeypatch)
 
         with (
-            patch("gateway.run._resolve_runtime_agent_kwargs", return_value={"api_key": "k"}),
-            patch("gateway.run._resolve_gateway_model", return_value="test-model"),
-            patch.dict("sys.modules", {"tools.memory_tool": MagicMock(get_memory_dir=lambda: empty_dir)}),
+            patch("hermes_agent.gateway.run._resolve_runtime_agent_kwargs", return_value={"api_key": "k"}),
+            patch("hermes_agent.gateway.run._resolve_gateway_model", return_value="test-model"),
+            patch.dict("sys.modules", {"hermes_agent.tools.memory": MagicMock(get_memory_dir=lambda: empty_dir)}),
         ):
             runner._flush_memories_for_session("session_456")
 
@@ -138,9 +138,9 @@ class TestMemoryInjection:
         runner, tmp_agent, _ = _make_flush_context(monkeypatch)
 
         with (
-            patch("gateway.run._resolve_runtime_agent_kwargs", return_value={"api_key": "k"}),
-            patch("gateway.run._resolve_gateway_model", return_value="test-model"),
-            patch.dict("sys.modules", {"tools.memory_tool": MagicMock(get_memory_dir=lambda: memory_dir)}),
+            patch("hermes_agent.gateway.run._resolve_runtime_agent_kwargs", return_value={"api_key": "k"}),
+            patch("hermes_agent.gateway.run._resolve_gateway_model", return_value="test-model"),
+            patch.dict("sys.modules", {"hermes_agent.tools.memory": MagicMock(get_memory_dir=lambda: memory_dir)}),
         ):
             runner._flush_memories_for_session("session_789")
 
@@ -164,14 +164,14 @@ class TestFlushAgentSilenced:
             captured_agent["instance"] = agent
             return agent
 
-        fake_run_agent = types.ModuleType("run_agent")
+        fake_run_agent = types.ModuleType("hermes_agent.agent.loop")
         fake_run_agent.AIAgent = _fake_ai_agent
-        monkeypatch.setitem(sys.modules, "run_agent", fake_run_agent)
+        monkeypatch.setitem(sys.modules, "hermes_agent.agent.loop", fake_run_agent)
 
         with (
-            patch("gateway.run._resolve_runtime_agent_kwargs", return_value={"api_key": "k"}),
-            patch("gateway.run._resolve_gateway_model", return_value="test-model"),
-            patch.dict("sys.modules", {"tools.memory_tool": MagicMock(get_memory_dir=lambda: tmp_path)}),
+            patch("hermes_agent.gateway.run._resolve_runtime_agent_kwargs", return_value={"api_key": "k"}),
+            patch("hermes_agent.gateway.run._resolve_gateway_model", return_value="test-model"),
+            patch.dict("sys.modules", {"hermes_agent.tools.memory": MagicMock(get_memory_dir=lambda: tmp_path)}),
         ):
             runner._flush_memories_for_session("session_silent")
 
@@ -182,7 +182,7 @@ class TestFlushAgentSilenced:
 
     def test_kawaii_spinner_respects_print_fn(self):
         """KawaiiSpinner must route all output through print_fn when supplied."""
-        from agent.display import KawaiiSpinner
+        from hermes_agent.agent.display import KawaiiSpinner
 
         written = []
         spinner = KawaiiSpinner("test", print_fn=lambda *a, **kw: written.append(a))
@@ -209,9 +209,9 @@ class TestFlushAgentSilenced:
         tmp_agent.close = MagicMock()
 
         with (
-            patch("gateway.run._resolve_runtime_agent_kwargs", return_value={"api_key": "k"}),
-            patch("gateway.run._resolve_gateway_model", return_value="test-model"),
-            patch.dict("sys.modules", {"tools.memory_tool": MagicMock(get_memory_dir=lambda: Path("/nonexistent"))}),
+            patch("hermes_agent.gateway.run._resolve_runtime_agent_kwargs", return_value={"api_key": "k"}),
+            patch("hermes_agent.gateway.run._resolve_gateway_model", return_value="test-model"),
+            patch.dict("sys.modules", {"hermes_agent.tools.memory": MagicMock(get_memory_dir=lambda: Path("/nonexistent"))}),
         ):
             runner._flush_memories_for_session("session_cleanup")
 
@@ -227,9 +227,9 @@ class TestFlushPromptStructure:
         runner, tmp_agent, _ = _make_flush_context(monkeypatch)
 
         with (
-            patch("gateway.run._resolve_runtime_agent_kwargs", return_value={"api_key": "k"}),
-            patch("gateway.run._resolve_gateway_model", return_value="test-model"),
-            patch.dict("sys.modules", {"tools.memory_tool": MagicMock(get_memory_dir=lambda: Path("/nonexistent"))}),
+            patch("hermes_agent.gateway.run._resolve_runtime_agent_kwargs", return_value={"api_key": "k"}),
+            patch("hermes_agent.gateway.run._resolve_gateway_model", return_value="test-model"),
+            patch.dict("sys.modules", {"hermes_agent.tools.memory": MagicMock(get_memory_dir=lambda: Path("/nonexistent"))}),
         ):
             runner._flush_memories_for_session("session_struct")
 

@@ -88,15 +88,15 @@ except ImportError:
 
     TrustState = _TrustStateStub  # type: ignore[misc,assignment]
 
-from gateway.config import Platform, PlatformConfig
-from gateway.platforms.base import (
+from hermes_agent.gateway.config import Platform, PlatformConfig
+from hermes_agent.gateway.platforms.base import (
     BasePlatformAdapter,
     MessageEvent,
     MessageType,
     ProcessingOutcome,
     SendResult,
 )
-from gateway.platforms.helpers import ThreadParticipationTracker
+from hermes_agent.gateway.platforms.helpers import ThreadParticipationTracker
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +106,7 @@ MAX_MESSAGE_LENGTH = 4000
 
 # Store directory for E2EE keys and sync state.
 # Uses get_hermes_home() so each profile gets its own Matrix store.
-from hermes_constants import get_hermes_dir as _get_hermes_dir
+from hermes_agent.constants import get_hermes_dir as _get_hermes_dir
 
 _STORE_DIR = _get_hermes_dir("platforms/matrix/store", "matrix/store")
 _CRYPTO_DB_PATH = _STORE_DIR / "crypto.db"
@@ -869,7 +869,7 @@ class MatrixAdapter(BasePlatformAdapter):
         metadata: Optional[Dict[str, Any]] = None,
     ) -> SendResult:
         """Download an image URL and upload it to Matrix."""
-        from tools.url_safety import is_safe_url
+        from hermes_agent.tools.security.urls import is_safe_url
 
         if not is_safe_url(image_url):
             logger.warning("Matrix: blocked unsafe image URL (SSRF protection)")
@@ -1469,7 +1469,7 @@ class MatrixAdapter(BasePlatformAdapter):
                             file_bytes = None
 
                     if file_bytes is not None:
-                        from gateway.platforms.base import (
+                        from hermes_agent.gateway.platforms.base import (
                             cache_audio_from_bytes,
                             cache_document_from_bytes,
                             cache_image_from_bytes,
@@ -1676,7 +1676,7 @@ class MatrixAdapter(BasePlatformAdapter):
 
     def _text_batch_key(self, event: MessageEvent) -> str:
         """Session-scoped key for text message batching."""
-        from gateway.session import build_session_key
+        from hermes_agent.gateway.session import build_session_key
 
         return build_session_key(
             event.source,

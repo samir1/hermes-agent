@@ -3,7 +3,7 @@
 import json
 import pytest
 
-from run_agent import _repair_tool_call_arguments
+from hermes_agent.agent.loop import _repair_tool_call_arguments
 
 
 class TestRepairToolCallArguments:

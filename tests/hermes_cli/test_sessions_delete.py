@@ -2,8 +2,8 @@ import sys
 
 
 def test_sessions_delete_accepts_unique_id_prefix(monkeypatch, capsys):
-    import hermes_cli.main as main_mod
-    import hermes_state
+    import hermes_agent.cli.main as main_mod
+    import hermes_agent.state
 
     captured = {}
 
@@ -38,8 +38,8 @@ def test_sessions_delete_accepts_unique_id_prefix(monkeypatch, capsys):
 
 
 def test_sessions_delete_reports_not_found_when_prefix_is_unknown(monkeypatch, capsys):
-    import hermes_cli.main as main_mod
-    import hermes_state
+    import hermes_agent.cli.main as main_mod
+    import hermes_agent.state
 
     class FakeDB:
         def resolve_session_id(self, session_id):
@@ -66,8 +66,8 @@ def test_sessions_delete_reports_not_found_when_prefix_is_unknown(monkeypatch, c
 
 def test_sessions_delete_handles_eoferror_on_confirm(monkeypatch, capsys):
     """sessions delete should not crash when stdin is closed (non-TTY)."""
-    import hermes_cli.main as main_mod
-    import hermes_state
+    import hermes_agent.cli.main as main_mod
+    import hermes_agent.state
 
     class FakeDB:
         def resolve_session_id(self, session_id):
@@ -94,8 +94,8 @@ def test_sessions_delete_handles_eoferror_on_confirm(monkeypatch, capsys):
 
 def test_sessions_prune_handles_eoferror_on_confirm(monkeypatch, capsys):
     """sessions prune should not crash when stdin is closed (non-TTY)."""
-    import hermes_cli.main as main_mod
-    import hermes_state
+    import hermes_agent.cli.main as main_mod
+    import hermes_agent.state
 
     class FakeDB:
         def prune_sessions(self, **kwargs):

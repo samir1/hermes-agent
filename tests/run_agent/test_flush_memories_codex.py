@@ -17,7 +17,7 @@ sys.modules.setdefault("fire", types.SimpleNamespace(Fire=lambda *a, **k: None))
 sys.modules.setdefault("firecrawl", types.SimpleNamespace(Firecrawl=object))
 sys.modules.setdefault("fal_client", types.SimpleNamespace())
 
-import run_agent
+import hermes_agent.agent.loop
 
 
 class _FakeOpenAI:
@@ -102,13 +102,13 @@ class TestFlushMemoriesRespectsConfigTimeout:
 
         mock_response = _chat_response_with_memory_call()
 
-        with patch("agent.auxiliary_client.call_llm", return_value=mock_response) as mock_call:
+        with patch("hermes_agent.providers.auxiliary.call_llm", return_value=mock_response) as mock_call:
             messages = [
                 {"role": "user", "content": "Hello"},
                 {"role": "assistant", "content": "Hi"},
                 {"role": "user", "content": "Note this"},
             ]
-            with patch("tools.memory_tool.memory_tool", return_value="Saved."):
+            with patch("hermes_agent.tools.memory.memory_tool", return_value="Saved."):
                 agent.flush_memories(messages)
 
         mock_call.assert_called_once()
@@ -128,9 +128,9 @@ class TestFlushMemoriesRespectsConfigTimeout:
 
         custom_timeout = 180.0
 
-        with patch("agent.auxiliary_client.call_llm", side_effect=RuntimeError("no provider")), \
-             patch("agent.auxiliary_client._get_task_timeout", return_value=custom_timeout) as mock_gtt, \
-             patch("tools.memory_tool.memory_tool", return_value="Saved."):
+        with patch("hermes_agent.providers.auxiliary.call_llm", side_effect=RuntimeError("no provider")), \
+             patch("hermes_agent.providers.auxiliary._get_task_timeout", return_value=custom_timeout) as mock_gtt, \
+             patch("hermes_agent.tools.memory.memory_tool", return_value="Saved."):
             messages = [
                 {"role": "user", "content": "Hello"},
                 {"role": "assistant", "content": "Hi"},
@@ -155,13 +155,13 @@ class TestFlushMemoriesUsesAuxiliaryClient:
 
         mock_response = _chat_response_with_memory_call()
 
-        with patch("agent.auxiliary_client.call_llm", return_value=mock_response) as mock_call:
+        with patch("hermes_agent.providers.auxiliary.call_llm", return_value=mock_response) as mock_call:
             messages = [
                 {"role": "user", "content": "Hello"},
                 {"role": "assistant", "content": "Hi there"},
                 {"role": "user", "content": "Remember this"},
             ]
-            with patch("tools.memory_tool.memory_tool", return_value="Saved.") as mock_memory:
+            with patch("hermes_agent.tools.memory.memory_tool", return_value="Saved.") as mock_memory:
                 agent.flush_memories(messages)
 
         mock_call.assert_called_once()
@@ -174,13 +174,13 @@ class TestFlushMemoriesUsesAuxiliaryClient:
         agent.client = MagicMock()
         agent.client.chat.completions.create.return_value = _chat_response_with_memory_call()
 
-        with patch("agent.auxiliary_client.call_llm", side_effect=RuntimeError("no provider")):
+        with patch("hermes_agent.providers.auxiliary.call_llm", side_effect=RuntimeError("no provider")):
             messages = [
                 {"role": "user", "content": "Hello"},
                 {"role": "assistant", "content": "Hi there"},
                 {"role": "user", "content": "Save this"},
             ]
-            with patch("tools.memory_tool.memory_tool", return_value="Saved."):
+            with patch("hermes_agent.tools.memory.memory_tool", return_value="Saved."):
                 agent.flush_memories(messages)
 
         agent.client.chat.completions.create.assert_called_once()
@@ -191,13 +191,13 @@ class TestFlushMemoriesUsesAuxiliaryClient:
 
         mock_response = _chat_response_with_memory_call()
 
-        with patch("agent.auxiliary_client.call_llm", return_value=mock_response):
+        with patch("hermes_agent.providers.auxiliary.call_llm", return_value=mock_response):
             messages = [
                 {"role": "user", "content": "Hello"},
                 {"role": "assistant", "content": "Hi"},
                 {"role": "user", "content": "Note this"},
             ]
-            with patch("tools.memory_tool.memory_tool", return_value="Saved.") as mock_memory:
+            with patch("hermes_agent.tools.memory.memory_tool", return_value="Saved.") as mock_memory:
                 agent.flush_memories(messages)
 
         mock_memory.assert_called_once()
@@ -212,14 +212,14 @@ class TestFlushMemoriesUsesAuxiliaryClient:
 
         mock_response = _chat_response_with_memory_call()
 
-        with patch("agent.auxiliary_client.call_llm", return_value=mock_response):
+        with patch("hermes_agent.providers.auxiliary.call_llm", return_value=mock_response):
             messages = [
                 {"role": "user", "content": "Hello"},
                 {"role": "assistant", "content": "Hi"},
                 {"role": "user", "content": "Remember X"},
             ]
             original_len = len(messages)
-            with patch("tools.memory_tool.memory_tool", return_value="Saved."):
+            with patch("hermes_agent.tools.memory.memory_tool", return_value="Saved."):
                 agent.flush_memories(messages)
 
         # Messages should not grow from the flush
@@ -254,10 +254,10 @@ class TestFlushMemoriesCodexFallback:
             model="gpt-5-codex",
         )
 
-        with patch("agent.auxiliary_client.call_llm", side_effect=RuntimeError("no provider")), \
+        with patch("hermes_agent.providers.auxiliary.call_llm", side_effect=RuntimeError("no provider")), \
              patch.object(agent, "_run_codex_stream", return_value=codex_response) as mock_stream, \
              patch.object(agent, "_build_api_kwargs") as mock_build, \
-             patch("tools.memory_tool.memory_tool", return_value="Saved.") as mock_memory:
+             patch("hermes_agent.tools.memory.memory_tool", return_value="Saved.") as mock_memory:
             mock_build.return_value = {
                 "model": "gpt-5-codex",
                 "instructions": "test",

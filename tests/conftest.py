@@ -30,10 +30,12 @@ from unittest.mock import patch
 
 import pytest
 
-# Ensure project root is importable
-PROJECT_ROOT = Path(__file__).parent.parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+try:
+    import hermes_agent
+except ImportError:
+    raise ImportError(
+        "hermes_agent not found. Run: uv pip install -e '.[all,dev]'"
+    ) from None
 
 
 # ── Credential env-var filter ──────────────────────────────────────────────
@@ -269,7 +271,7 @@ def _hermetic_environment(tmp_path, monkeypatch):
     #    ~/.hermes/plugins/ (which, per step 3, is now empty — but the
     #    singleton might still be cached from a previous test).
     try:
-        import hermes_cli.plugins as _plugins_mod
+        import hermes_agent.cli.plugins as _plugins_mod
         monkeypatch.setattr(_plugins_mod, "_plugin_manager", None)
     except Exception:
         pass
@@ -309,7 +311,7 @@ def _reset_module_state():
     """
     # --- tools.approval — the single biggest source of cross-test pollution ---
     try:
-        from tools import approval as _approval_mod
+        from hermes_agent.tools.security import approval as _approval_mod
         _approval_mod._session_approved.clear()
         _approval_mod._session_yolo.clear()
         _approval_mod._permanent_approved.clear()
@@ -325,7 +327,7 @@ def _reset_module_state():
 
     # --- tools.interrupt — per-thread interrupt flag set ---
     try:
-        from tools import interrupt as _interrupt_mod
+        from hermes_agent.tools import interrupt as _interrupt_mod
         with _interrupt_mod._lock:
             _interrupt_mod._interrupted_threads.clear()
     except Exception:
@@ -335,7 +337,7 @@ def _reset_module_state():
     #     the active gateway session. If set in one test and not reset,
     #     the next test's get_session_env() reads stale values.
     try:
-        from gateway import session_context as _sc_mod
+        from hermes_agent.gateway import session_context as _sc_mod
         for _cv in (
             _sc_mod._SESSION_PLATFORM,
             _sc_mod._SESSION_CHAT_ID,
@@ -356,14 +358,14 @@ def _reset_module_state():
     # LookupError is normal if the test never set it. Setting it to an
     # empty set unconditionally normalizes the starting state.
     try:
-        from tools import env_passthrough as _envp_mod
+        from hermes_agent.tools import env_passthrough as _envp_mod
         _envp_mod._allowed_env_vars_var.set(set())
     except Exception:
         pass
 
     # --- tools.credential_files — ContextVar<dict> ---
     try:
-        from tools import credential_files as _credf_mod
+        from hermes_agent.tools import credential_files as _credf_mod
         _credf_mod._registered_files_var.set({})
     except Exception:
         pass
@@ -373,7 +375,7 @@ def _reset_module_state():
     # capped by _READ_HISTORY_CAP. If entries from a prior test persist, the
     # cap is hit faster than expected and capacity-related tests flake.
     try:
-        from tools import file_tools as _ft_mod
+        from hermes_agent.tools.files import tools as _ft_mod
         with _ft_mod._read_tracker_lock:
             _ft_mod._read_tracker.clear()
         with _ft_mod._file_ops_lock:
@@ -395,7 +397,7 @@ def mock_config():
     """Return a minimal hermes config dict suitable for unit tests."""
     return {
         "model": "test/mock-model",
-        "toolsets": ["terminal", "file"],
+        "hermes_agent.tools.toolsets": ["terminal", "file"],
         "max_turns": 10,
         "terminal": {
             "backend": "local",

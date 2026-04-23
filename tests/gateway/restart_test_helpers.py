@@ -1,11 +1,11 @@
 import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
-from gateway.config import GatewayConfig, Platform, PlatformConfig
-from gateway.platforms.base import BasePlatformAdapter, MessageEvent, SendResult
-from gateway.restart import DEFAULT_GATEWAY_RESTART_DRAIN_TIMEOUT
-from gateway.run import GatewayRunner
-from gateway.session import SessionSource
+from hermes_agent.gateway.config import GatewayConfig, Platform, PlatformConfig
+from hermes_agent.gateway.platforms.base import BasePlatformAdapter, MessageEvent, SendResult
+from hermes_agent.gateway.restart import DEFAULT_GATEWAY_RESTART_DRAIN_TIMEOUT
+from hermes_agent.gateway.run import GatewayRunner
+from hermes_agent.gateway.session import SessionSource
 
 
 class RestartTestAdapter(BasePlatformAdapter):

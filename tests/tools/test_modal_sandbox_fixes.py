@@ -17,11 +17,9 @@ import pytest
 # Ensure repo root is importable
 _repo_root = Path(__file__).resolve().parent.parent.parent
 if str(_repo_root) not in sys.path:
-    sys.path.insert(0, str(_repo_root))
-
 try:
-    import tools.terminal_tool  # noqa: F401
-    _tt_mod = sys.modules["tools.terminal_tool"]
+    import hermes_agent.tools.terminal  # noqa: F401
+    _tt_mod = sys.modules["hermes_agent.tools.terminal"]
 except ImportError:
     pytest.skip("hermes-agent tools not importable (missing deps)", allow_module_level=True)
 
@@ -35,7 +33,7 @@ class TestToolResolution:
 
     def test_terminal_and_file_toolsets_resolve_all_tools(self):
         """enabled_toolsets=['terminal', 'file'] should produce 6 tools."""
-        from model_tools import get_tool_definitions
+        from hermes_agent.tools.dispatch import get_tool_definitions
         tools = get_tool_definitions(
             enabled_toolsets=["terminal", "file"],
             quiet_mode=True,
@@ -46,7 +44,7 @@ class TestToolResolution:
 
     def test_terminal_tool_present(self):
         """The terminal tool must be present (not silently dropped)."""
-        from model_tools import get_tool_definitions
+        from hermes_agent.tools.dispatch import get_tool_definitions
         tools = get_tool_definitions(
             enabled_toolsets=["terminal", "file"],
             quiet_mode=True,
@@ -114,7 +112,7 @@ class TestCwdHandling:
 
     def test_docker_default_cwd_maps_current_directory_when_enabled(self, monkeypatch):
         """Docker should use /workspace when cwd mounting is explicitly enabled."""
-        monkeypatch.setattr("tools.terminal_tool.os.getcwd", lambda: "/home/user/project")
+        monkeypatch.setattr("hermes_agent.tools.terminal.os.getcwd", lambda: "/home/user/project")
         monkeypatch.setenv("TERMINAL_ENV", "docker")
         monkeypatch.setenv("TERMINAL_DOCKER_MOUNT_CWD_TO_WORKSPACE", "true")
         monkeypatch.delenv("TERMINAL_CWD", raising=False)
@@ -213,7 +211,7 @@ class TestModalEnvironmentDefaults:
 
     def test_default_cwd_is_root(self):
         """ModalEnvironment default cwd should be /root, not ~."""
-        from tools.environments.modal import ModalEnvironment
+        from hermes_agent.backends.modal import ModalEnvironment
         import inspect
         sig = inspect.signature(ModalEnvironment.__init__)
         cwd_default = sig.parameters["cwd"].default
@@ -233,7 +231,7 @@ class TestEnsurepipFix:
     def test_modal_environment_creates_image_with_setup_commands(self):
         """_resolve_modal_image should create a modal.Image with pip fix."""
         try:
-            from tools.environments.modal import _resolve_modal_image
+            from hermes_agent.backends.modal import _resolve_modal_image
         except ImportError:
             pytest.skip("tools.environments.modal not importable")
 
@@ -251,7 +249,7 @@ class TestEnsurepipFix:
     def test_modal_environment_uses_native_sdk(self):
         """ModalEnvironment should use Modal SDK directly, not swe-rex."""
         try:
-            from tools.environments.modal import ModalEnvironment
+            from hermes_agent.backends.modal import ModalEnvironment
         except ImportError:
             pytest.skip("tools.environments.modal not importable")
 

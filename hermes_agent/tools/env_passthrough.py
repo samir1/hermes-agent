@@ -60,7 +60,7 @@ def _is_hermes_provider_credential(name: str) -> bool:
     wrap third-party APIs still work.
     """
     try:
-        from tools.environments.local import _HERMES_PROVIDER_ENV_BLOCKLIST
+        from hermes_agent.backends.local import _HERMES_PROVIDER_ENV_BLOCKLIST
     except Exception:
         return False
     return name in _HERMES_PROVIDER_ENV_BLOCKLIST
@@ -107,7 +107,7 @@ def _load_config_passthrough() -> frozenset[str]:
 
     result: set[str] = set()
     try:
-        from hermes_cli.config import read_raw_config
+        from hermes_agent.cli.config import read_raw_config
         cfg = read_raw_config()
         passthrough = cfg.get("terminal", {}).get("env_passthrough")
         if isinstance(passthrough, list):

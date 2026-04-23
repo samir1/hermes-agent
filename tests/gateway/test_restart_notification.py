@@ -7,10 +7,10 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-import gateway.run as gateway_run
-from gateway.config import Platform
-from gateway.platforms.base import MessageEvent, MessageType
-from gateway.session import build_session_key
+import hermes_agent.gateway.run as gateway_run
+from hermes_agent.gateway.config import Platform
+from hermes_agent.gateway.platforms.base import MessageEvent, MessageType
+from hermes_agent.gateway.session import build_session_key
 from tests.gateway.restart_test_helpers import (
     make_restart_runner,
     make_restart_source,

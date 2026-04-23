@@ -32,9 +32,9 @@ from urllib.parse import urlencode
 import fal_client
 import httpx
 
-from tools.debug_helpers import DebugSession
-from tools.managed_tool_gateway import resolve_managed_tool_gateway
-from tools.tool_backend_helpers import (
+from hermes_agent.tools.debug_helpers import DebugSession
+from hermes_agent.tools.managed_gateway import resolve_managed_tool_gateway
+from hermes_agent.tools.backend_helpers import (
     fal_key_is_configured,
     managed_nous_tools_enabled,
     prefers_gateway,
@@ -500,7 +500,7 @@ def _resolve_fal_model() -> tuple:
     """
     model_id = ""
     try:
-        from hermes_cli.config import load_config
+        from hermes_agent.cli.config import load_config
         cfg = load_config()
         img_cfg = cfg.get("image_gen") if isinstance(cfg, dict) else None
         if isinstance(img_cfg, dict):
@@ -802,8 +802,8 @@ def check_image_generation_requirements() -> bool:
 
     # Probe plugin providers. Discovery is idempotent and cheap.
     try:
-        from agent.image_gen_registry import list_providers
-        from hermes_cli.plugins import _ensure_plugins_discovered
+        from hermes_agent.agent.image_gen.registry import list_providers
+        from hermes_agent.cli.plugins import _ensure_plugins_discovered
 
         _ensure_plugins_discovered()
         for provider in list_providers():
@@ -856,7 +856,7 @@ if __name__ == "__main__":
 # ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
-from tools.registry import registry, tool_error
+from hermes_agent.tools.registry import registry, tool_error
 
 IMAGE_GENERATE_SCHEMA = {
     "name": "image_generate",
@@ -895,7 +895,7 @@ def _read_configured_image_provider():
     for other features but never asked for OpenAI image gen).
     """
     try:
-        from hermes_cli.config import load_config
+        from hermes_agent.cli.config import load_config
         cfg = load_config()
         section = cfg.get("image_gen") if isinstance(cfg, dict) else None
         if isinstance(section, dict):
@@ -925,8 +925,8 @@ def _dispatch_to_plugin_provider(prompt: str, aspect_ratio: str):
     try:
         # Import locally so plugin discovery isn't triggered just by
         # importing this module (tests rely on that).
-        from agent.image_gen_registry import get_provider
-        from hermes_cli.plugins import _ensure_plugins_discovered
+        from hermes_agent.agent.image_gen.registry import get_provider
+        from hermes_agent.cli.plugins import _ensure_plugins_discovered
 
         _ensure_plugins_discovered()
         provider = get_provider(configured)

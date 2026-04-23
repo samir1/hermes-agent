@@ -975,18 +975,18 @@ def build_whole_comment_prompt(
 def _resolve_model_and_runtime() -> Tuple[str, dict]:
     """Resolve model and provider credentials, same as gateway message handling."""
     import os
-    from gateway.run import _load_gateway_config, _resolve_gateway_model
+    from hermes_agent.gateway.run import _load_gateway_config, _resolve_gateway_model
 
     user_config = _load_gateway_config()
     model = _resolve_gateway_model(user_config)
 
-    from gateway.run import _resolve_runtime_agent_kwargs
+    from hermes_agent.gateway.run import _resolve_runtime_agent_kwargs
     runtime_kwargs = _resolve_runtime_agent_kwargs()
 
     # Fall back to provider's default model if none configured
     if not model and runtime_kwargs.get("provider"):
         try:
-            from hermes_cli.models import get_default_model_for_provider
+            from hermes_agent.cli.models.models import get_default_model_for_provider
             model = get_default_model_for_provider(runtime_kwargs["provider"])
         except Exception:
             pass
@@ -1053,11 +1053,11 @@ def _run_comment_agent(prompt: str, client: Any, session_key: str = "") -> str:
 
     Returns the agent's final response text, or empty string on failure.
     """
-    from run_agent import AIAgent
+    from hermes_agent.agent.loop import AIAgent
 
     logger.info("[Feishu-Comment] _run_comment_agent: injecting lark client into tool thread-locals")
-    from tools.feishu_doc_tool import set_client as set_doc_client
-    from tools.feishu_drive_tool import set_client as set_drive_client
+    from hermes_agent.tools.feishu_doc import set_client as set_doc_client
+    from hermes_agent.tools.feishu_drive import set_client as set_drive_client
     set_doc_client(client)
     set_drive_client(client)
 
@@ -1165,7 +1165,7 @@ async def handle_drive_comment_event(
     )
 
     # Access control
-    from gateway.platforms.feishu_comment_rules import load_config, resolve_rule, is_user_allowed, has_wiki_keys
+    from hermes_agent.gateway.platforms.feishu_comment_rules import load_config, resolve_rule, is_user_allowed, has_wiki_keys
 
     comments_cfg = load_config()
     rule = resolve_rule(comments_cfg, file_type, file_token)

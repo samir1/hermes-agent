@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from gateway.config import PlatformConfig
+from hermes_agent.gateway.config import PlatformConfig
 
 
 class _FakeAllowedMentions:
@@ -66,8 +66,8 @@ def _ensure_discord_mock():
 
 _ensure_discord_mock()
 
-import gateway.platforms.discord as discord_platform  # noqa: E402
-from gateway.platforms.discord import DiscordAdapter  # noqa: E402
+import hermes_agent.gateway.platforms.discord as discord_platform  # noqa: E402
+from hermes_agent.gateway.platforms.discord import DiscordAdapter  # noqa: E402
 
 
 class FakeTree:
@@ -131,8 +131,8 @@ async def test_connect_only_requests_members_intent_when_needed(monkeypatch, all
     adapter = DiscordAdapter(PlatformConfig(enabled=True, token="test-token"))
 
     monkeypatch.setenv("DISCORD_ALLOWED_USERS", allowed_users)
-    monkeypatch.setattr("gateway.status.acquire_scoped_lock", lambda scope, identity, metadata=None: (True, None))
-    monkeypatch.setattr("gateway.status.release_scoped_lock", lambda scope, identity: None)
+    monkeypatch.setattr("hermes_agent.gateway.status.acquire_scoped_lock", lambda scope, identity, metadata=None: (True, None))
+    monkeypatch.setattr("hermes_agent.gateway.status.release_scoped_lock", lambda scope, identity: None)
 
     intents = SimpleNamespace(message_content=False, dm_messages=False, guild_messages=False, members=False, voice_states=False)
     monkeypatch.setattr(discord_platform.Intents, "default", lambda: intents)
@@ -165,9 +165,9 @@ async def test_connect_only_requests_members_intent_when_needed(monkeypatch, all
 async def test_connect_releases_token_lock_on_timeout(monkeypatch):
     adapter = DiscordAdapter(PlatformConfig(enabled=True, token="test-token"))
 
-    monkeypatch.setattr("gateway.status.acquire_scoped_lock", lambda scope, identity, metadata=None: (True, None))
+    monkeypatch.setattr("hermes_agent.gateway.status.acquire_scoped_lock", lambda scope, identity, metadata=None: (True, None))
     released = []
-    monkeypatch.setattr("gateway.status.release_scoped_lock", lambda scope, identity: released.append((scope, identity)))
+    monkeypatch.setattr("hermes_agent.gateway.status.release_scoped_lock", lambda scope, identity: released.append((scope, identity)))
 
     intents = SimpleNamespace(message_content=False, dm_messages=False, guild_messages=False, members=False, voice_states=False)
     monkeypatch.setattr(discord_platform.Intents, "default", lambda: intents)
@@ -199,8 +199,8 @@ async def test_connect_releases_token_lock_on_timeout(monkeypatch):
 async def test_connect_does_not_wait_for_slash_sync(monkeypatch):
     adapter = DiscordAdapter(PlatformConfig(enabled=True, token="test-token"))
 
-    monkeypatch.setattr("gateway.status.acquire_scoped_lock", lambda scope, identity, metadata=None: (True, None))
-    monkeypatch.setattr("gateway.status.release_scoped_lock", lambda scope, identity: None)
+    monkeypatch.setattr("hermes_agent.gateway.status.acquire_scoped_lock", lambda scope, identity, metadata=None: (True, None))
+    monkeypatch.setattr("hermes_agent.gateway.status.release_scoped_lock", lambda scope, identity: None)
 
     intents = SimpleNamespace(message_content=False, dm_messages=False, guild_messages=False, members=False, voice_states=False)
     monkeypatch.setattr(discord_platform.Intents, "default", lambda: intents)

@@ -39,13 +39,13 @@ from rich.console import Console
 logger = logging.getLogger(__name__)
 import fire
 
-from run_agent import AIAgent
-from toolset_distributions import (
+from hermes_agent.agent.loop import AIAgent
+from hermes_agent.tools.distributions import (
     list_distributions, 
     sample_toolsets_from_distribution,
     validate_distribution
 )
-from model_tools import TOOL_TO_TOOLSET_MAP
+from hermes_agent.tools.dispatch import TOOL_TO_TOOLSET_MAP
 
 
 # Global configuration for worker processes
@@ -293,7 +293,7 @@ def _process_single_prompt(
                 if config.get("verbose"):
                     print(f"   Prompt {prompt_index}: Docker image check failed: {img_err}", flush=True)
 
-        from tools.terminal_tool import register_task_env_overrides
+        from hermes_agent.tools.terminal import register_task_env_overrides
         overrides = {
             "docker_image": container_image,
             "modal_image": container_image,
@@ -712,7 +712,7 @@ class BatchRunner:
         """
         checkpoint_data["last_updated"] = datetime.now().isoformat()
 
-        from utils import atomic_json_write
+        from hermes_agent.utils import atomic_json_write
         if lock:
             with lock:
                 atomic_json_write(self.checkpoint_file, checkpoint_data)
@@ -1194,7 +1194,7 @@ def main(
     """
     # Handle list distributions
     if show_distributions:
-        from toolset_distributions import print_distribution_info
+        from hermes_agent.tools.distributions import print_distribution_info
 
         print("📊 Available Toolset Distributions")
         print("=" * 70)

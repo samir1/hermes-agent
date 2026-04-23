@@ -4,11 +4,11 @@ import os
 import pytest
 from unittest.mock import patch, MagicMock
 
-from hermes_cli.auth import PROVIDER_REGISTRY, resolve_provider, resolve_api_key_provider_credentials
-from hermes_cli.models import _PROVIDER_MODELS, _PROVIDER_LABELS, _PROVIDER_ALIASES, normalize_provider
-from hermes_cli.model_normalize import normalize_model_for_provider, detect_vendor
-from agent.model_metadata import get_model_context_length
-from agent.models_dev import PROVIDER_TO_MODELS_DEV, list_agentic_models, _NOISE_PATTERNS
+from hermes_agent.cli.auth.auth import PROVIDER_REGISTRY, resolve_provider, resolve_api_key_provider_credentials
+from hermes_agent.cli.models.models import _PROVIDER_MODELS, _PROVIDER_LABELS, _PROVIDER_ALIASES, normalize_provider
+from hermes_agent.cli.models.normalize import normalize_model_for_provider, detect_vendor
+from hermes_agent.providers.metadata import get_model_context_length
+from hermes_agent.providers.metadata_dev import PROVIDER_TO_MODELS_DEV, list_agentic_models, _NOISE_PATTERNS
 
 
 # ── Provider Registry ──
@@ -114,7 +114,7 @@ class TestGeminiCredentials:
 
     def test_runtime_gemini(self, monkeypatch):
         monkeypatch.setenv("GOOGLE_API_KEY", "google-key")
-        from hermes_cli.runtime_provider import resolve_runtime_provider
+        from hermes_agent.cli.runtime_provider import resolve_runtime_provider
         result = resolve_runtime_provider(requested="gemini")
         assert result["provider"] == "gemini"
         assert result["api_mode"] == "chat_completions"
@@ -167,8 +167,8 @@ class TestGeminiContextLength:
     def test_gemma_4_31b_context(self):
         # Mock external API lookups to test against hardcoded defaults
         # (models.dev and OpenRouter may return different values like 262144).
-        with patch("agent.models_dev.lookup_models_dev_context", return_value=None), \
-             patch("agent.model_metadata.fetch_model_metadata", return_value={}):
+        with patch("hermes_agent.providers.metadata_dev.lookup_models_dev_context", return_value=None), \
+             patch("hermes_agent.providers.metadata.fetch_model_metadata", return_value={}):
             ctx = get_model_context_length("gemma-4-31b-it", provider="gemini")
         assert ctx == 256000
 
@@ -183,15 +183,15 @@ class TestGeminiAgentInit:
     def test_agent_imports_without_error(self):
         """Verify run_agent.py has no SyntaxError (the critical bug)."""
         import importlib
-        import run_agent
+        import hermes_agent.agent.loop
         importlib.reload(run_agent)
 
     def test_gemini_agent_uses_chat_completions(self, monkeypatch):
         """Gemini still reports chat_completions even though the transport is native."""
         monkeypatch.setenv("GOOGLE_API_KEY", "test-key")
-        with patch("agent.gemini_native_adapter.GeminiNativeClient") as mock_client:
+        with patch("hermes_agent.providers.gemini_adapter.GeminiNativeClient") as mock_client:
             mock_client.return_value = MagicMock()
-            from run_agent import AIAgent
+            from hermes_agent.agent.loop import AIAgent
             agent = AIAgent(
                 model="gemini-2.5-flash",
                 provider="gemini",
@@ -203,12 +203,12 @@ class TestGeminiAgentInit:
 
     def test_gemini_agent_uses_native_client(self, monkeypatch):
         monkeypatch.setenv("GOOGLE_API_KEY", "AIzaSy_REAL_KEY")
-        with patch("agent.gemini_native_adapter.GeminiNativeClient") as mock_client, \
-             patch("run_agent.OpenAI") as mock_openai, \
-             patch("run_agent.ContextCompressor") as mock_compressor:
+        with patch("hermes_agent.providers.gemini_adapter.GeminiNativeClient") as mock_client, \
+             patch("hermes_agent.agent.loop.OpenAI") as mock_openai, \
+             patch("hermes_agent.agent.loop.ContextCompressor") as mock_compressor:
             mock_client.return_value = MagicMock()
             mock_compressor.return_value = MagicMock(context_length=1048576, threshold_tokens=524288)
-            from run_agent import AIAgent
+            from hermes_agent.agent.loop import AIAgent
             AIAgent(
                 model="gemini-2.5-flash",
                 provider="gemini",
@@ -220,12 +220,12 @@ class TestGeminiAgentInit:
 
     def test_gemini_custom_base_url_keeps_openai_client(self, monkeypatch):
         monkeypatch.setenv("GOOGLE_API_KEY", "AIzaSy_REAL_KEY")
-        with patch("agent.gemini_native_adapter.GeminiNativeClient") as mock_client, \
-             patch("run_agent.OpenAI") as mock_openai, \
-             patch("run_agent.ContextCompressor") as mock_compressor:
+        with patch("hermes_agent.providers.gemini_adapter.GeminiNativeClient") as mock_client, \
+             patch("hermes_agent.agent.loop.OpenAI") as mock_openai, \
+             patch("hermes_agent.agent.loop.ContextCompressor") as mock_compressor:
             mock_openai.return_value = MagicMock()
             mock_compressor.return_value = MagicMock(context_length=128000, threshold_tokens=64000)
-            from run_agent import AIAgent
+            from hermes_agent.agent.loop import AIAgent
             AIAgent(
                 model="gemini-2.5-flash",
                 provider="gemini",
@@ -236,12 +236,12 @@ class TestGeminiAgentInit:
 
     def test_gemini_openai_compat_base_url_keeps_openai_client(self, monkeypatch):
         monkeypatch.setenv("GOOGLE_API_KEY", "AIzaSy_REAL_KEY")
-        with patch("agent.gemini_native_adapter.GeminiNativeClient") as mock_client, \
-             patch("run_agent.OpenAI") as mock_openai, \
-             patch("run_agent.ContextCompressor") as mock_compressor:
+        with patch("hermes_agent.providers.gemini_adapter.GeminiNativeClient") as mock_client, \
+             patch("hermes_agent.agent.loop.OpenAI") as mock_openai, \
+             patch("hermes_agent.agent.loop.ContextCompressor") as mock_compressor:
             mock_openai.return_value = MagicMock()
             mock_compressor.return_value = MagicMock(context_length=1048576, threshold_tokens=524288)
-            from run_agent import AIAgent
+            from hermes_agent.agent.loop import AIAgent
             AIAgent(
                 model="gemini-2.5-flash",
                 provider="gemini",
@@ -253,10 +253,10 @@ class TestGeminiAgentInit:
     def test_gemini_resolve_provider_client_uses_native_client(self, monkeypatch):
         """resolve_provider_client('gemini') should build GeminiNativeClient."""
         monkeypatch.setenv("GEMINI_API_KEY", "AIzaSy_TEST_KEY")
-        with patch("agent.gemini_native_adapter.GeminiNativeClient") as mock_client, \
-             patch("agent.auxiliary_client.OpenAI") as mock_openai:
+        with patch("hermes_agent.providers.gemini_adapter.GeminiNativeClient") as mock_client, \
+             patch("hermes_agent.providers.auxiliary.OpenAI") as mock_openai:
             mock_client.return_value = MagicMock()
-            from agent.auxiliary_client import resolve_provider_client
+            from hermes_agent.providers.auxiliary import resolve_provider_client
             resolve_provider_client("gemini")
         assert mock_client.called
         mock_openai.assert_not_called()
@@ -264,10 +264,10 @@ class TestGeminiAgentInit:
     def test_gemini_resolve_provider_client_keeps_openai_for_non_native_base_url(self, monkeypatch):
         monkeypatch.setenv("GOOGLE_API_KEY", "AIzaSy_TEST_KEY")
         monkeypatch.setenv("GEMINI_BASE_URL", "https://proxy.example.com/v1")
-        with patch("agent.gemini_native_adapter.GeminiNativeClient") as mock_client, \
-             patch("agent.auxiliary_client.OpenAI") as mock_openai:
+        with patch("hermes_agent.providers.gemini_adapter.GeminiNativeClient") as mock_client, \
+             patch("hermes_agent.providers.auxiliary.OpenAI") as mock_openai:
             mock_openai.return_value = MagicMock()
-            from agent.auxiliary_client import resolve_provider_client
+            from hermes_agent.providers.auxiliary import resolve_provider_client
             resolve_provider_client("gemini")
         mock_openai.assert_called_once()
 
@@ -321,7 +321,7 @@ class TestGeminiModelsDev:
                 }
             }
         }
-        with patch("agent.models_dev.fetch_models_dev", return_value=mock_data):
+        with patch("hermes_agent.providers.metadata_dev.fetch_models_dev", return_value=mock_data):
             result = list_agentic_models("gemini")
         assert "gemini-3-flash-preview" in result
         assert "gemini-2.5-pro" in result
@@ -344,8 +344,8 @@ class TestGeminiModelsDev:
                 }
             }
         }
-        with patch("agent.models_dev.fetch_models_dev", return_value=mock_data):
-            from agent.models_dev import list_provider_models
+        with patch("hermes_agent.providers.metadata_dev.fetch_models_dev", return_value=mock_data):
+            from hermes_agent.providers.metadata_dev import list_provider_models
 
             result = list_provider_models("gemini")
 

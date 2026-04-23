@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-from run_agent import AIAgent
+from hermes_agent.agent.loop import AIAgent
 
 
 def _make_agent(

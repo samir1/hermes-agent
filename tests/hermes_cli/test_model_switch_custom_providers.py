@@ -5,9 +5,9 @@ shared slash-command pipeline (`/model` in CLI/gateway/Telegram) historically
 only looked at `providers:`.
 """
 
-import hermes_cli.providers as providers_mod
-from hermes_cli.model_switch import list_authenticated_providers, switch_model
-from hermes_cli.providers import resolve_provider_full
+import hermes_agent.cli.providers as providers_mod
+from hermes_agent.cli.models.switch import list_authenticated_providers, switch_model
+from hermes_agent.cli.providers import resolve_provider_full
 
 
 _MOCK_VALIDATION = {
@@ -20,7 +20,7 @@ _MOCK_VALIDATION = {
 
 def test_list_authenticated_providers_includes_custom_providers(monkeypatch):
     """No-args /model menus should include saved custom_providers entries."""
-    monkeypatch.setattr("agent.models_dev.fetch_models_dev", lambda: {})
+    monkeypatch.setattr("hermes_agent.providers.metadata_dev.fetch_models_dev", lambda: {})
     monkeypatch.setattr(providers_mod, "HERMES_OVERLAYS", {})
 
     providers = list_authenticated_providers(
@@ -68,16 +68,16 @@ def test_resolve_provider_full_finds_named_custom_provider():
 def test_switch_model_accepts_explicit_named_custom_provider(monkeypatch):
     """Shared /model switch pipeline should accept --provider for custom_providers."""
     monkeypatch.setattr(
-        "hermes_cli.runtime_provider.resolve_runtime_provider",
+        "hermes_agent.cli.runtime_provider.resolve_runtime_provider",
         lambda requested: {
             "api_key": "no-key-required",
             "base_url": "http://127.0.0.1:4141/v1",
             "api_mode": "chat_completions",
         },
     )
-    monkeypatch.setattr("hermes_cli.models.validate_requested_model", lambda *a, **k: _MOCK_VALIDATION)
-    monkeypatch.setattr("hermes_cli.model_switch.get_model_info", lambda *a, **k: None)
-    monkeypatch.setattr("hermes_cli.model_switch.get_model_capabilities", lambda *a, **k: None)
+    monkeypatch.setattr("hermes_agent.cli.models.models.validate_requested_model", lambda *a, **k: _MOCK_VALIDATION)
+    monkeypatch.setattr("hermes_agent.cli.models.switch.get_model_info", lambda *a, **k: None)
+    monkeypatch.setattr("hermes_agent.cli.models.switch.get_model_capabilities", lambda *a, **k: None)
 
     result = switch_model(
         raw_input="rotator-openrouter-coding",
@@ -107,7 +107,7 @@ def test_switch_model_accepts_explicit_named_custom_provider(monkeypatch):
 def test_list_groups_same_name_custom_providers_into_one_row(monkeypatch):
     """Multiple custom_providers entries sharing a name should produce one row
     with all models collected, not N duplicate rows."""
-    monkeypatch.setattr("agent.models_dev.fetch_models_dev", lambda: {})
+    monkeypatch.setattr("hermes_agent.providers.metadata_dev.fetch_models_dev", lambda: {})
     monkeypatch.setattr(providers_mod, "HERMES_OVERLAYS", {})
 
     providers = list_authenticated_providers(
@@ -138,7 +138,7 @@ def test_list_groups_same_name_custom_providers_into_one_row(monkeypatch):
 def test_list_deduplicates_same_model_in_group(monkeypatch):
     """Duplicate model entries under the same provider name should not produce
     duplicate entries in the models list."""
-    monkeypatch.setattr("agent.models_dev.fetch_models_dev", lambda: {})
+    monkeypatch.setattr("hermes_agent.providers.metadata_dev.fetch_models_dev", lambda: {})
     monkeypatch.setattr(providers_mod, "HERMES_OVERLAYS", {})
 
     providers = list_authenticated_providers(
@@ -167,7 +167,7 @@ def test_list_enumerates_dict_format_models_alongside_default(monkeypatch):
     singular ``model:`` field, so multi-model custom providers appeared
     to have only the active model.
     """
-    monkeypatch.setattr("agent.models_dev.fetch_models_dev", lambda: {})
+    monkeypatch.setattr("hermes_agent.providers.metadata_dev.fetch_models_dev", lambda: {})
     monkeypatch.setattr(providers_mod, "HERMES_OVERLAYS", {})
 
     providers = list_authenticated_providers(
@@ -197,7 +197,7 @@ def test_list_enumerates_dict_format_models_alongside_default(monkeypatch):
 def test_list_enumerates_dict_format_models_without_singular_model(monkeypatch):
     """Dict-format ``models:`` with no singular ``model:`` should still
     enumerate every dict key (previously the picker reported 0 models)."""
-    monkeypatch.setattr("agent.models_dev.fetch_models_dev", lambda: {})
+    monkeypatch.setattr("hermes_agent.providers.metadata_dev.fetch_models_dev", lambda: {})
     monkeypatch.setattr(providers_mod, "HERMES_OVERLAYS", {})
 
     providers = list_authenticated_providers(
@@ -230,7 +230,7 @@ def test_list_enumerates_dict_format_models_without_singular_model(monkeypatch):
 def test_list_dedupes_dict_model_matching_singular_default(monkeypatch):
     """When the singular ``model:`` is also a key in the ``models:`` dict,
     it must appear exactly once in the picker."""
-    monkeypatch.setattr("agent.models_dev.fetch_models_dev", lambda: {})
+    monkeypatch.setattr("hermes_agent.providers.metadata_dev.fetch_models_dev", lambda: {})
     monkeypatch.setattr(providers_mod, "HERMES_OVERLAYS", {})
 
     providers = list_authenticated_providers(

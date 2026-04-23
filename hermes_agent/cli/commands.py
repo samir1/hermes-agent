@@ -131,7 +131,7 @@ COMMAND_REGISTRY: list[CommandDef] = [
     # Tools & Skills
     CommandDef("tools", "Manage tools: /tools [list|disable|enable] [name...]", "Tools & Skills",
                args_hint="[list|disable|enable] [name...]", cli_only=True),
-    CommandDef("toolsets", "List available toolsets", "Tools & Skills",
+    CommandDef("hermes_agent.tools.toolsets", "List available toolsets", "Tools & Skills",
                cli_only=True),
     CommandDef("skills", "Search, install, inspect, or manage skills",
                "Tools & Skills", cli_only=True,
@@ -318,7 +318,7 @@ def _resolve_config_gates() -> set[str]:
     if not gated:
         return set()
     try:
-        from hermes_cli.config import read_raw_config
+        from hermes_agent.cli.config import read_raw_config
         cfg = read_raw_config()
     except Exception:
         return set()
@@ -497,7 +497,7 @@ def _collect_gateway_skill_entries(
     # --- Tier 1: Plugin slash commands (never trimmed) ---------------------
     plugin_pairs: list[tuple[str, str]] = []
     try:
-        from hermes_cli.plugins import get_plugin_commands
+        from hermes_agent.cli.plugins import get_plugin_commands
         plugin_cmds = get_plugin_commands()
         for cmd_name in sorted(plugin_cmds):
             name = sanitize_name(cmd_name) if sanitize_name else cmd_name
@@ -519,15 +519,15 @@ def _collect_gateway_skill_entries(
     # --- Tier 2: Built-in skill commands (trimmed at cap) -----------------
     _platform_disabled: set[str] = set()
     try:
-        from agent.skill_utils import get_disabled_skill_names
+        from hermes_agent.agent.skill_utils import get_disabled_skill_names
         _platform_disabled = get_disabled_skill_names(platform=platform)
     except Exception:
         pass
 
     skill_triples: list[tuple[str, str, str]] = []
     try:
-        from agent.skill_commands import get_skill_commands
-        from tools.skills_tool import SKILLS_DIR
+        from hermes_agent.agent.skill_commands import get_skill_commands
+        from hermes_agent.tools.skills.tool import SKILLS_DIR
         _skills_dir = str(SKILLS_DIR.resolve())
         _hub_dir = str((SKILLS_DIR / ".hub").resolve())
         skill_cmds = get_skill_commands()
@@ -661,7 +661,7 @@ def discord_skill_commands_by_category(
 
     _platform_disabled: set[str] = set()
     try:
-        from agent.skill_utils import get_disabled_skill_names
+        from hermes_agent.agent.skill_utils import get_disabled_skill_names
         _platform_disabled = get_disabled_skill_names(platform="discord")
     except Exception:
         pass
@@ -673,8 +673,8 @@ def discord_skill_commands_by_category(
     hidden = 0
 
     try:
-        from agent.skill_commands import get_skill_commands
-        from tools.skills_tool import SKILLS_DIR
+        from hermes_agent.agent.skill_commands import get_skill_commands
+        from hermes_agent.tools.skills.tool import SKILLS_DIR
         _skills_dir = SKILLS_DIR.resolve()
         _hub_dir = (SKILLS_DIR / ".hub").resolve()
         skill_cmds = get_skill_commands()
@@ -1116,7 +1116,7 @@ class SlashCommandCompleter(Completer):
     def _skin_completions(sub_text: str, sub_lower: str):
         """Yield completions for /skin from available skins."""
         try:
-            from hermes_cli.skin_engine import list_skins
+            from hermes_agent.cli.ui.skin_engine import list_skins
             for s in list_skins():
                 name = s["name"]
                 if name.startswith(sub_lower) and name != sub_lower:
@@ -1133,7 +1133,7 @@ class SlashCommandCompleter(Completer):
     def _personality_completions(sub_text: str, sub_lower: str):
         """Yield completions for /personality from configured personalities."""
         try:
-            from hermes_cli.config import load_config
+            from hermes_agent.cli.config import load_config
             personalities = load_config().get("agent", {}).get("personalities", {})
             if "none".startswith(sub_lower) and "none" != sub_lower:
                 yield Completion(
@@ -1162,7 +1162,7 @@ class SlashCommandCompleter(Completer):
         seen = set()
         # Config-based direct aliases (preferred — include provider info)
         try:
-            from hermes_cli.model_switch import (
+            from hermes_agent.cli.models.switch import (
                 _ensure_direct_aliases, DIRECT_ALIASES, MODEL_ALIASES,
             )
             _ensure_direct_aliases()
@@ -1262,7 +1262,7 @@ class SlashCommandCompleter(Completer):
 
         # Plugin-registered slash commands
         try:
-            from hermes_cli.plugins import get_plugin_commands
+            from hermes_agent.cli.plugins import get_plugin_commands
             for cmd_name, cmd_info in get_plugin_commands().items():
                 if cmd_name.startswith(word):
                     desc = str(cmd_info.get("description", "Plugin command"))

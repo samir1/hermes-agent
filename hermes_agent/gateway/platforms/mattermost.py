@@ -21,9 +21,9 @@ import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from gateway.config import Platform, PlatformConfig
-from gateway.platforms.helpers import MessageDeduplicator
-from gateway.platforms.base import (
+from hermes_agent.gateway.config import Platform, PlatformConfig
+from hermes_agent.gateway.platforms.helpers import MessageDeduplicator
+from hermes_agent.gateway.platforms.base import (
     BasePlatformAdapter,
     MessageEvent,
     MessageType,
@@ -405,7 +405,7 @@ class MattermostAdapter(BasePlatformAdapter):
         kind: str = "file",
     ) -> SendResult:
         """Download a URL and upload it as a file attachment."""
-        from tools.url_safety import is_safe_url
+        from hermes_agent.tools.security.urls import is_safe_url
         if not is_safe_url(url):
             logger.warning("Mattermost: blocked unsafe URL (SSRF protection)")
             return await self.send(chat_id, f"{caption or ''}\n{url}".strip(), reply_to)
@@ -681,13 +681,13 @@ class MattermostAdapter(BasePlatformAdapter):
                 ) as resp:
                     if resp.status < 400:
                         file_data = await resp.read()
-                        from gateway.platforms.base import cache_image_from_bytes, cache_document_from_bytes
+                        from hermes_agent.gateway.platforms.base import cache_image_from_bytes, cache_document_from_bytes
                         if mime.startswith("image/"):
                             local_path = cache_image_from_bytes(file_data, ext or ".png")
                             media_urls.append(local_path)
                             media_types.append(mime)
                         elif mime.startswith("audio/"):
-                            from gateway.platforms.base import cache_audio_from_bytes
+                            from hermes_agent.gateway.platforms.base import cache_audio_from_bytes
                             local_path = cache_audio_from_bytes(file_data, ext or ".ogg")
                             media_urls.append(local_path)
                             media_types.append(mime)
@@ -718,7 +718,7 @@ class MattermostAdapter(BasePlatformAdapter):
         )
 
         # Per-channel ephemeral prompt
-        from gateway.platforms.base import resolve_channel_prompt
+        from hermes_agent.gateway.platforms.base import resolve_channel_prompt
         _channel_prompt = resolve_channel_prompt(
             self.config.extra, channel_id, None,
         )

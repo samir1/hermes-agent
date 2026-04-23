@@ -37,9 +37,9 @@ from pathlib import Path
 from typing import Any, Awaitable, Dict, Optional
 from urllib.parse import urlparse
 import httpx
-from agent.auxiliary_client import async_call_llm, extract_content_or_reasoning
-from tools.debug_helpers import DebugSession
-from tools.website_policy import check_website_access
+from hermes_agent.providers.auxiliary import async_call_llm, extract_content_or_reasoning
+from hermes_agent.tools.debug_helpers import DebugSession
+from hermes_agent.tools.website_policy import check_website_access
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +56,7 @@ def _resolve_download_timeout() -> float:
         except ValueError:
             pass
     try:
-        from hermes_cli.config import load_config
+        from hermes_agent.cli.config import load_config
         cfg = load_config()
         val = cfg.get("auxiliary", {}).get("vision", {}).get("download_timeout")
         if val is not None:
@@ -96,7 +96,7 @@ def _validate_image_url(url: str) -> bool:
         return False
 
     # Block private/internal addresses to prevent SSRF
-    from tools.url_safety import is_safe_url
+    from hermes_agent.tools.security.urls import is_safe_url
     if not is_safe_url(url):
         return False
 
@@ -155,7 +155,7 @@ async def _download_image(image_url: str, destination: Path, max_retries: int = 
         """
         if response.is_redirect and response.next_request:
             redirect_url = str(response.next_request.url)
-            from tools.url_safety import is_safe_url
+            from hermes_agent.tools.security.urls import is_safe_url
             if not is_safe_url(redirect_url):
                 raise ValueError(
                     f"Blocked redirect to private/internal address: {redirect_url}"
@@ -458,7 +458,7 @@ async def vision_analyze_tool(
     detected_mime_type = None
     
     try:
-        from tools.interrupt import is_interrupted
+        from hermes_agent.tools.interrupt import is_interrupted
         if is_interrupted():
             return tool_error("Interrupted", success=False)
 
@@ -554,7 +554,7 @@ async def vision_analyze_tool(
         vision_timeout = 120.0
         vision_temperature = 0.1
         try:
-            from hermes_cli.config import load_config
+            from hermes_agent.cli.config import load_config
             _cfg = load_config()
             _vision_cfg = _cfg.get("auxiliary", {}).get("vision", {})
             _vt = _vision_cfg.get("timeout")
@@ -685,7 +685,7 @@ async def vision_analyze_tool(
 def check_vision_requirements() -> bool:
     """Check if the configured runtime vision path can resolve a client."""
     try:
-        from agent.auxiliary_client import resolve_vision_provider_client
+        from hermes_agent.providers.auxiliary import resolve_vision_provider_client
 
         _provider, client, _model = resolve_vision_provider_client()
         return client is not None
@@ -749,7 +749,7 @@ if __name__ == "__main__":
 # ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
-from tools.registry import registry, tool_error
+from hermes_agent.tools.registry import registry, tool_error
 
 VISION_ANALYZE_SCHEMA = {
     "name": "vision_analyze",

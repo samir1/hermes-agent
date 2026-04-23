@@ -46,12 +46,12 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 from openai import OpenAI
 
 if TYPE_CHECKING:
-    from agent.gemini_native_adapter import GeminiNativeClient
+    from hermes_agent.providers.gemini_adapter import GeminiNativeClient
 
-from agent.credential_pool import load_pool
-from hermes_cli.config import get_hermes_home
-from hermes_constants import OPENROUTER_BASE_URL
-from utils import base_url_host_matches, base_url_hostname, normalize_proxy_env_vars
+from hermes_agent.providers.credential_pool import load_pool
+from hermes_agent.cli.config import get_hermes_home
+from hermes_agent.constants import OPENROUTER_BASE_URL
+from hermes_agent.utils import base_url_host_matches, base_url_hostname, normalize_proxy_env_vars
 
 logger = logging.getLogger(__name__)
 
@@ -166,7 +166,7 @@ _OR_HEADERS = {
 
 # Vercel AI Gateway app attribution headers. HTTP-Referer maps to
 # referrerUrl and X-Title maps to appName in the gateway's analytics.
-from hermes_cli import __version__ as _HERMES_VERSION
+from hermes_agent.cli import __version__ as _HERMES_VERSION
 
 _AI_GATEWAY_HEADERS = {
     "HTTP-Referer": "https://hermes-agent.nousresearch.com",
@@ -575,7 +575,7 @@ class _AnthropicCompletionsAdapter:
         self._is_oauth = is_oauth
 
     def create(self, **kwargs) -> Any:
-        from agent.anthropic_adapter import build_anthropic_kwargs, normalize_anthropic_response
+        from hermes_agent.providers.anthropic_adapter import build_anthropic_kwargs, normalize_anthropic_response
 
         messages = kwargs.get("messages", [])
         model = kwargs.get("model", self._model)
@@ -607,7 +607,7 @@ class _AnthropicCompletionsAdapter:
         # temperature for models that still accept it. build_anthropic_kwargs
         # additionally strips these keys as a safety net — keep both layers.
         if temperature is not None:
-            from agent.anthropic_adapter import _forbids_sampling_params
+            from hermes_agent.providers.anthropic_adapter import _forbids_sampling_params
             if not _forbids_sampling_params(model):
                 anthropic_kwargs["temperature"] = temperature
 
@@ -738,7 +738,7 @@ def _resolve_nous_runtime_api(*, force_refresh: bool = False) -> Optional[tuple[
     or the credential pool.
     """
     try:
-        from hermes_cli.auth import resolve_nous_runtime_credentials
+        from hermes_agent.cli.auth.auth import resolve_nous_runtime_credentials
 
         creds = resolve_nous_runtime_credentials(
             min_key_ttl_seconds=max(60, int(os.getenv("HERMES_NOUS_MIN_KEY_TTL_SECONDS", "1800"))),
@@ -772,7 +772,7 @@ def _read_codex_access_token() -> Optional[str]:
             return token
 
     try:
-        from hermes_cli.auth import _read_codex_tokens
+        from hermes_agent.cli.auth.auth import _read_codex_tokens
         data = _read_codex_tokens()
         tokens = data.get("tokens", {})
         access_token = tokens.get("access_token")
@@ -810,7 +810,7 @@ def _resolve_api_key_provider() -> Tuple[Optional[Union[OpenAI, "GeminiNativeCli
     credentials, or (None, None) if none are configured.
     """
     try:
-        from hermes_cli.auth import PROVIDER_REGISTRY, resolve_api_key_provider_credentials
+        from hermes_agent.cli.auth.auth import PROVIDER_REGISTRY, resolve_api_key_provider_credentials
     except ImportError:
         logger.debug("Could not import PROVIDER_REGISTRY for API-key fallback")
         return None, None
@@ -823,7 +823,7 @@ def _resolve_api_key_provider() -> Tuple[Optional[Union[OpenAI, "GeminiNativeCli
             # Without this gate, Claude Code credentials get silently used
             # as auxiliary fallback when the user's primary provider fails.
             try:
-                from hermes_cli.auth import is_provider_explicitly_configured
+                from hermes_agent.cli.auth.auth import is_provider_explicitly_configured
                 if not is_provider_explicitly_configured("anthropic"):
                     continue
             except ImportError:
@@ -844,7 +844,7 @@ def _resolve_api_key_provider() -> Tuple[Optional[Union[OpenAI, "GeminiNativeCli
                 continue  # skip provider if we don't know a valid aux model
             logger.debug("Auxiliary text client: %s (%s) via pool", pconfig.name, model)
             if provider_id == "gemini":
-                from agent.gemini_native_adapter import GeminiNativeClient, is_native_gemini_base_url
+                from hermes_agent.providers.gemini_adapter import GeminiNativeClient, is_native_gemini_base_url
 
                 if is_native_gemini_base_url(base_url):
                     return GeminiNativeClient(api_key=api_key, base_url=base_url), model
@@ -852,7 +852,7 @@ def _resolve_api_key_provider() -> Tuple[Optional[Union[OpenAI, "GeminiNativeCli
             if base_url_host_matches(base_url, "api.kimi.com"):
                 extra["default_headers"] = {"User-Agent": "claude-code/0.1.0"}
             elif base_url_host_matches(base_url, "api.githubcopilot.com"):
-                from hermes_cli.models import copilot_default_headers
+                from hermes_agent.cli.models.models import copilot_default_headers
 
                 extra["default_headers"] = copilot_default_headers()
             return OpenAI(api_key=api_key, base_url=base_url, **extra), model
@@ -870,7 +870,7 @@ def _resolve_api_key_provider() -> Tuple[Optional[Union[OpenAI, "GeminiNativeCli
             continue  # skip provider if we don't know a valid aux model
         logger.debug("Auxiliary text client: %s (%s)", pconfig.name, model)
         if provider_id == "gemini":
-            from agent.gemini_native_adapter import GeminiNativeClient, is_native_gemini_base_url
+            from hermes_agent.providers.gemini_adapter import GeminiNativeClient, is_native_gemini_base_url
 
             if is_native_gemini_base_url(base_url):
                 return GeminiNativeClient(api_key=api_key, base_url=base_url), model
@@ -878,7 +878,7 @@ def _resolve_api_key_provider() -> Tuple[Optional[Union[OpenAI, "GeminiNativeCli
         if base_url_host_matches(base_url, "api.kimi.com"):
             extra["default_headers"] = {"User-Agent": "claude-code/0.1.0"}
         elif base_url_host_matches(base_url, "api.githubcopilot.com"):
-            from hermes_cli.models import copilot_default_headers
+            from hermes_agent.cli.models.models import copilot_default_headers
 
             extra["default_headers"] = copilot_default_headers()
         return OpenAI(api_key=api_key, base_url=base_url, **extra), model
@@ -914,7 +914,7 @@ def _try_nous(vision: bool = False) -> Tuple[Optional[OpenAI], Optional[str]]:
     # if another session already recorded a 429, skip Nous entirely
     # to avoid piling more requests onto the tapped RPH bucket.
     try:
-        from agent.nous_rate_guard import nous_rate_limit_remaining
+        from hermes_agent.providers.nous_rate_guard import nous_rate_limit_remaining
         _remaining = nous_rate_limit_remaining()
         if _remaining is not None and _remaining > 0:
             logger.debug(
@@ -941,7 +941,7 @@ def _try_nous(vision: bool = False) -> Tuple[Optional[OpenAI], Optional[str]]:
     # or returns a null recommendation for this task type.
     model = _NOUS_MODEL
     try:
-        from hermes_cli.models import get_nous_recommended_aux_model
+        from hermes_agent.cli.models.models import get_nous_recommended_aux_model
         recommended = get_nous_recommended_aux_model(vision=vision)
         if recommended:
             model = recommended
@@ -982,7 +982,7 @@ def _read_main_model() -> str:
     model. Environment variables are no longer consulted.
     """
     try:
-        from hermes_cli.config import load_config
+        from hermes_agent.cli.config import load_config
         cfg = load_config()
         model_cfg = cfg.get("model", {})
         if isinstance(model_cfg, str) and model_cfg.strip():
@@ -1003,7 +1003,7 @@ def _read_main_provider() -> str:
     if not configured.
     """
     try:
-        from hermes_cli.config import load_config
+        from hermes_agent.cli.config import load_config
         cfg = load_config()
         model_cfg = cfg.get("model", {})
         if isinstance(model_cfg, dict):
@@ -1023,7 +1023,7 @@ def _resolve_custom_runtime() -> Tuple[Optional[str], Optional[str], Optional[st
     environment.
     """
     try:
-        from hermes_cli.runtime_provider import resolve_runtime_provider
+        from hermes_agent.cli.runtime_provider import resolve_runtime_provider
 
         runtime = resolve_runtime_provider(requested="custom")
     except Exception as exc:
@@ -1138,7 +1138,7 @@ def _try_custom_endpoint() -> Tuple[Optional[Any], Optional[str]]:
         # LiteLLM proxies, etc.).  Must NEVER be treated as OAuth —
         # Anthropic OAuth claims only apply to api.anthropic.com.
         try:
-            from agent.anthropic_adapter import build_anthropic_client
+            from hermes_agent.providers.anthropic_adapter import build_anthropic_client
             real_client = build_anthropic_client(custom_key, custom_base)
         except ImportError:
             logger.warning(
@@ -1180,7 +1180,7 @@ def _try_codex() -> Tuple[Optional[Any], Optional[str]]:
 
 def _try_anthropic() -> Tuple[Optional[Any], Optional[str]]:
     try:
-        from agent.anthropic_adapter import build_anthropic_client, resolve_anthropic_token
+        from hermes_agent.providers.anthropic_adapter import build_anthropic_client, resolve_anthropic_token
     except ImportError:
         return None, None
 
@@ -1200,7 +1200,7 @@ def _try_anthropic() -> Tuple[Optional[Any], Optional[str]]:
     # base_url (e.g. Codex endpoint) would leak into Anthropic requests.
     base_url = _pool_runtime_base_url(entry, _ANTHROPIC_DEFAULT_BASE_URL) if pool_present else _ANTHROPIC_DEFAULT_BASE_URL
     try:
-        from hermes_cli.config import load_config
+        from hermes_agent.cli.config import load_config
         cfg = load_config()
         model_cfg = cfg.get("model")
         if isinstance(model_cfg, dict):
@@ -1212,7 +1212,7 @@ def _try_anthropic() -> Tuple[Optional[Any], Optional[str]]:
     except Exception:
         pass
 
-    from agent.anthropic_adapter import _is_oauth_token
+    from hermes_agent.providers.anthropic_adapter import _is_oauth_token
     is_oauth = _is_oauth_token(token)
     model = _API_KEY_PROVIDER_AUX_MODELS.get("anthropic", "claude-haiku-4-5-20251001")
     logger.debug("Auxiliary client: Anthropic native (%s) at %s (oauth=%s)", model, base_url, is_oauth)
@@ -1480,14 +1480,14 @@ def _to_async_client(sync_client, model: str):
     if isinstance(sync_client, AnthropicAuxiliaryClient):
         return AsyncAnthropicAuxiliaryClient(sync_client), model
     try:
-        from agent.gemini_native_adapter import GeminiNativeClient, AsyncGeminiNativeClient
+        from hermes_agent.providers.gemini_adapter import GeminiNativeClient, AsyncGeminiNativeClient
 
         if isinstance(sync_client, GeminiNativeClient):
             return AsyncGeminiNativeClient(sync_client), model
     except ImportError:
         pass
     try:
-        from agent.copilot_acp_client import CopilotACPClient
+        from hermes_agent.agent.copilot_acp_client import CopilotACPClient
         if isinstance(sync_client, CopilotACPClient):
             return sync_client, model
     except ImportError:
@@ -1501,7 +1501,7 @@ def _to_async_client(sync_client, model: str):
     if base_url_host_matches(sync_base_url, "openrouter.ai"):
         async_kwargs["default_headers"] = dict(_OR_HEADERS)
     elif base_url_host_matches(sync_base_url, "api.githubcopilot.com"):
-        from hermes_cli.models import copilot_default_headers
+        from hermes_agent.cli.models.models import copilot_default_headers
 
         async_kwargs["default_headers"] = copilot_default_headers()
     elif base_url_host_matches(sync_base_url, "api.kimi.com"):
@@ -1514,7 +1514,7 @@ def _normalize_resolved_model(model_name: Optional[str], provider: str) -> Optio
     if not model_name:
         return model_name
     try:
-        from hermes_cli.model_normalize import normalize_model_for_provider
+        from hermes_agent.cli.models.normalize import normalize_model_for_provider
 
         return normalize_model_for_provider(model_name, provider)
     except Exception:
@@ -1694,7 +1694,7 @@ def resolve_provider_client(
             if base_url_host_matches(custom_base, "api.kimi.com"):
                 extra["default_headers"] = {"User-Agent": "claude-code/0.1.0"}
             elif base_url_host_matches(custom_base, "api.githubcopilot.com"):
-                from hermes_cli.models import copilot_default_headers
+                from hermes_agent.cli.models.models import copilot_default_headers
                 extra["default_headers"] = copilot_default_headers()
             client = OpenAI(api_key=custom_key, base_url=custom_base, **extra)
             client = _wrap_if_needed(client, final_model, custom_base)
@@ -1716,7 +1716,7 @@ def resolve_provider_client(
 
     # ── Named custom providers (config.yaml custom_providers list) ───
     try:
-        from hermes_cli.runtime_provider import _get_named_custom_provider
+        from hermes_agent.cli.runtime_provider import _get_named_custom_provider
         custom_entry = _get_named_custom_provider(provider)
         if custom_entry:
             custom_base = custom_entry.get("base_url", "").strip()
@@ -1746,13 +1746,13 @@ def resolve_provider_client(
 
     # ── API-key providers from PROVIDER_REGISTRY ─────────────────────
     try:
-        from hermes_cli.auth import (
+        from hermes_agent.cli.auth.auth import (
             PROVIDER_REGISTRY,
             resolve_api_key_provider_credentials,
             resolve_external_process_provider_credentials,
         )
     except ImportError:
-        logger.debug("hermes_cli.auth not available for provider %s", provider)
+        logger.debug("hermes_agent.cli.auth not available for provider %s", provider)
         return None, None
 
     pconfig = PROVIDER_REGISTRY.get(provider)
@@ -1788,7 +1788,7 @@ def resolve_provider_client(
         final_model = _normalize_resolved_model(model or default_model, provider)
 
         if provider == "gemini":
-            from agent.gemini_native_adapter import GeminiNativeClient, is_native_gemini_base_url
+            from hermes_agent.providers.gemini_adapter import GeminiNativeClient, is_native_gemini_base_url
 
             if is_native_gemini_base_url(base_url):
                 client = GeminiNativeClient(api_key=api_key, base_url=base_url)
@@ -1801,7 +1801,7 @@ def resolve_provider_client(
         if base_url_host_matches(base_url, "api.kimi.com"):
             headers["User-Agent"] = "claude-code/0.1.0"
         elif base_url_host_matches(base_url, "api.githubcopilot.com"):
-            from hermes_cli.models import copilot_default_headers
+            from hermes_agent.cli.models.models import copilot_default_headers
 
             headers.update(copilot_default_headers())
         client = OpenAI(api_key=api_key, base_url=base_url,
@@ -1813,7 +1813,7 @@ def resolve_provider_client(
         # routes through responses.stream().
         if provider == "copilot" and final_model and not raw_codex:
             try:
-                from hermes_cli.models import _should_use_copilot_responses_api
+                from hermes_agent.cli.models.models import _should_use_copilot_responses_api
                 if _should_use_copilot_responses_api(final_model):
                     logger.debug(
                         "resolve_provider_client: copilot model %s needs "
@@ -1852,7 +1852,7 @@ def resolve_provider_client(
                     "process credentials are incomplete"
                 )
                 return None, None
-            from agent.copilot_acp_client import CopilotACPClient
+            from hermes_agent.agent.copilot_acp_client import CopilotACPClient
 
             client = CopilotACPClient(
                 api_key=api_key,
@@ -2475,7 +2475,7 @@ def _get_auxiliary_task_config(task: str) -> Dict[str, Any]:
     if not task:
         return {}
     try:
-        from hermes_cli.config import load_config
+        from hermes_agent.cli.config import load_config
         config = load_config()
     except ImportError:
         return {}
@@ -2605,7 +2605,7 @@ def _build_call_kwargs(
     # flush_memories, 0 on structured-JSON extraction) don't 400 the moment
     # the aux model is flipped to 4.7.
     if temperature is not None:
-        from agent.anthropic_adapter import _forbids_sampling_params
+        from hermes_agent.providers.anthropic_adapter import _forbids_sampling_params
         if _forbids_sampling_params(model):
             temperature = None
 

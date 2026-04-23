@@ -3,7 +3,7 @@
 import json
 import pytest
 
-from agent.transports.types import (
+from hermes_agent.providers.types import (
     NormalizedResponse,
     ToolCall,
     Usage,

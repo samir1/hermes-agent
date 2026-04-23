@@ -27,7 +27,7 @@ import time
 from pathlib import Path
 from typing import Optional
 
-from hermes_constants import get_hermes_dir
+from hermes_agent.constants import get_hermes_dir
 
 
 # Unambiguous alphabet -- excludes 0/O, 1/I to prevent confusion

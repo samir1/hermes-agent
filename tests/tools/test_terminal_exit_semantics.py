@@ -2,7 +2,7 @@
 
 import pytest
 
-from tools.terminal_tool import _interpret_exit_code
+from hermes_agent.tools.terminal import _interpret_exit_code
 
 
 class TestInterpretExitCode:

@@ -54,8 +54,8 @@ def _enable_managed_nous_tools(monkeypatch):
     the *source* modules that the reimported modules will import from — both
     hermes_cli.auth and hermes_cli.models — so the function body returns True.
     """
-    monkeypatch.setattr("hermes_cli.auth.get_nous_auth_status", lambda: {"logged_in": True})
-    monkeypatch.setattr("hermes_cli.models.check_nous_free_tier", lambda: False)
+    monkeypatch.setattr("hermes_agent.cli.auth.auth.get_nous_auth_status", lambda: {"logged_in": True})
+    monkeypatch.setattr("hermes_agent.cli.models.models.check_nous_free_tier", lambda: False)
 
 
 def _install_fake_tools_package():
@@ -65,29 +65,29 @@ def _install_fake_tools_package():
     tools_package.__path__ = [str(TOOLS_DIR)]  # type: ignore[attr-defined]
     sys.modules["tools"] = tools_package
 
-    env_package = types.ModuleType("tools.environments")
+    env_package = types.ModuleType("hermes_agent.backends")
     env_package.__path__ = [str(TOOLS_DIR / "environments")]  # type: ignore[attr-defined]
-    sys.modules["tools.environments"] = env_package
+    sys.modules["hermes_agent.backends"] = env_package
 
     agent_package = types.ModuleType("agent")
     agent_package.__path__ = []  # type: ignore[attr-defined]
     sys.modules["agent"] = agent_package
-    sys.modules["agent.auxiliary_client"] = types.SimpleNamespace(
+    sys.modules["hermes_agent.providers.auxiliary"] = types.SimpleNamespace(
         call_llm=lambda *args, **kwargs: "",
     )
 
-    sys.modules["tools.managed_tool_gateway"] = _load_tool_module(
-        "tools.managed_tool_gateway",
+    sys.modules["hermes_agent.tools.managed_gateway"] = _load_tool_module(
+        "hermes_agent.tools.managed_gateway",
         "managed_tool_gateway.py",
     )
 
     interrupt_event = threading.Event()
-    sys.modules["tools.interrupt"] = types.SimpleNamespace(
+    sys.modules["hermes_agent.tools.interrupt"] = types.SimpleNamespace(
         set_interrupt=lambda value=True: interrupt_event.set() if value else interrupt_event.clear(),
         is_interrupted=lambda: interrupt_event.is_set(),
         _interrupt_event=interrupt_event,
     )
-    sys.modules["tools.approval"] = types.SimpleNamespace(
+    sys.modules["hermes_agent.tools.security.approval"] = types.SimpleNamespace(
         detect_dangerous_command=lambda *args, **kwargs: None,
         check_dangerous_command=lambda *args, **kwargs: {"approved": True},
         check_all_command_guards=lambda *args, **kwargs: {"approved": True},
@@ -99,9 +99,9 @@ def _install_fake_tools_package():
         def register(self, **kwargs):
             return None
 
-    from tools.registry import tool_error
+    from hermes_agent.tools.registry import tool_error
 
-    sys.modules["tools.registry"] = types.SimpleNamespace(
+    sys.modules["hermes_agent.tools.registry"] = types.SimpleNamespace(
         registry=_Registry(), tool_error=tool_error,
     )
 
@@ -113,16 +113,16 @@ def _install_fake_tools_package():
         def cleanup(self):
             return None
 
-    sys.modules["tools.environments.base"] = types.SimpleNamespace(BaseEnvironment=_DummyEnvironment)
-    sys.modules["tools.environments.local"] = types.SimpleNamespace(LocalEnvironment=_DummyEnvironment)
-    sys.modules["tools.environments.singularity"] = types.SimpleNamespace(
+    sys.modules["hermes_agent.backends.base"] = types.SimpleNamespace(BaseEnvironment=_DummyEnvironment)
+    sys.modules["hermes_agent.backends.local"] = types.SimpleNamespace(LocalEnvironment=_DummyEnvironment)
+    sys.modules["hermes_agent.backends.singularity"] = types.SimpleNamespace(
         _get_scratch_dir=lambda: Path(tempfile.gettempdir()),
         SingularityEnvironment=_DummyEnvironment,
     )
-    sys.modules["tools.environments.ssh"] = types.SimpleNamespace(SSHEnvironment=_DummyEnvironment)
-    sys.modules["tools.environments.docker"] = types.SimpleNamespace(DockerEnvironment=_DummyEnvironment)
-    sys.modules["tools.environments.modal"] = types.SimpleNamespace(ModalEnvironment=_DummyEnvironment)
-    sys.modules["tools.environments.managed_modal"] = types.SimpleNamespace(ManagedModalEnvironment=_DummyEnvironment)
+    sys.modules["hermes_agent.backends.ssh"] = types.SimpleNamespace(SSHEnvironment=_DummyEnvironment)
+    sys.modules["hermes_agent.backends.docker"] = types.SimpleNamespace(DockerEnvironment=_DummyEnvironment)
+    sys.modules["hermes_agent.backends.modal"] = types.SimpleNamespace(ModalEnvironment=_DummyEnvironment)
+    sys.modules["hermes_agent.backends.managed_modal"] = types.SimpleNamespace(ManagedModalEnvironment=_DummyEnvironment)
 
 
 def test_browser_use_explicit_local_mode_stays_local_even_when_managed_gateway_is_ready(tmp_path):
@@ -137,7 +137,7 @@ def test_browser_use_explicit_local_mode_stays_local_even_when_managed_gateway_i
     })
 
     with patch.dict(os.environ, env, clear=True):
-        browser_tool = _load_tool_module("tools.browser_tool", "browser_tool.py")
+        browser_tool = _load_tool_module("hermes_agent.tools.browser.tool", "browser_tool.py")
 
         local_mode = browser_tool._is_local_mode()
         provider = browser_tool._get_cloud_provider()
@@ -158,7 +158,7 @@ def test_browserbase_does_not_use_gateway_only_configuration():
 
     with patch.dict(os.environ, env, clear=True):
         browserbase_module = _load_tool_module(
-            "tools.browser_providers.browserbase",
+            "hermes_agent.tools.browser.providers.browserbase",
             "browser_providers/browserbase.py",
         )
         provider = browserbase_module.BrowserbaseProvider()
@@ -189,7 +189,7 @@ def test_browser_use_managed_gateway_adds_idempotency_key_and_persists_external_
 
     with patch.dict(os.environ, env, clear=True):
         browser_use_module = _load_tool_module(
-            "tools.browser_providers.browser_use",
+            "hermes_agent.tools.browser.providers.browser_use",
             "browser_providers/browser_use.py",
         )
 
@@ -229,7 +229,7 @@ def test_browser_use_managed_gateway_reuses_pending_idempotency_key_after_timeou
 
     with patch.dict(os.environ, env, clear=True):
         browser_use_module = _load_tool_module(
-            "tools.browser_providers.browser_use",
+            "hermes_agent.tools.browser.providers.browser_use",
             "browser_providers/browser_use.py",
         )
         provider = browser_use_module.BrowserUseProvider()
@@ -291,7 +291,7 @@ def test_browser_use_managed_gateway_preserves_pending_idempotency_key_for_in_pr
 
     with patch.dict(os.environ, env, clear=True):
         browser_use_module = _load_tool_module(
-            "tools.browser_providers.browser_use",
+            "hermes_agent.tools.browser.providers.browser_use",
             "browser_providers/browser_use.py",
         )
         provider = browser_use_module.BrowserUseProvider()
@@ -338,7 +338,7 @@ def test_browser_use_managed_gateway_uses_new_idempotency_key_for_a_new_session_
 
     with patch.dict(os.environ, env, clear=True):
         browser_use_module = _load_tool_module(
-            "tools.browser_providers.browser_use",
+            "hermes_agent.tools.browser.providers.browser_use",
             "browser_providers/browser_use.py",
         )
         provider = browser_use_module.BrowserUseProvider()
@@ -359,7 +359,7 @@ def test_terminal_tool_prefers_managed_modal_when_gateway_ready_and_no_direct_cr
     env.pop("MODAL_TOKEN_SECRET", None)
 
     with patch.dict(os.environ, env, clear=True):
-        terminal_tool = _load_tool_module("tools.terminal_tool", "terminal_tool.py")
+        terminal_tool = _load_tool_module("hermes_agent.tools.terminal", "terminal_tool.py")
 
         with (
             patch.object(terminal_tool, "is_managed_tool_gateway_ready", return_value=True),
@@ -396,7 +396,7 @@ def test_terminal_tool_auto_mode_prefers_managed_modal_when_available():
     })
 
     with patch.dict(os.environ, env, clear=True):
-        terminal_tool = _load_tool_module("tools.terminal_tool", "terminal_tool.py")
+        terminal_tool = _load_tool_module("hermes_agent.tools.terminal", "terminal_tool.py")
 
         with (
             patch.object(terminal_tool, "is_managed_tool_gateway_ready", return_value=True),
@@ -432,7 +432,7 @@ def test_terminal_tool_auto_mode_falls_back_to_direct_modal_when_managed_unavail
     })
 
     with patch.dict(os.environ, env, clear=True):
-        terminal_tool = _load_tool_module("tools.terminal_tool", "terminal_tool.py")
+        terminal_tool = _load_tool_module("hermes_agent.tools.terminal", "terminal_tool.py")
 
         with (
             patch.object(terminal_tool, "is_managed_tool_gateway_ready", return_value=False),
@@ -466,7 +466,7 @@ def test_terminal_tool_respects_direct_modal_mode_without_falling_back_to_manage
     env.pop("MODAL_TOKEN_SECRET", None)
 
     with patch.dict(os.environ, env, clear=True):
-        terminal_tool = _load_tool_module("tools.terminal_tool", "terminal_tool.py")
+        terminal_tool = _load_tool_module("hermes_agent.tools.terminal", "terminal_tool.py")
 
         with (
             patch.object(terminal_tool, "is_managed_tool_gateway_ready", return_value=True),

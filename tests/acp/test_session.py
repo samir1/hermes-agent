@@ -8,8 +8,8 @@ from types import SimpleNamespace
 import pytest
 from unittest.mock import MagicMock, patch
 
-from acp_adapter.session import SessionManager, SessionState
-from hermes_state import SessionDB
+from hermes_agent.acp.session import SessionManager, SessionState
+from hermes_agent.state import SessionDB
 
 
 def _mock_agent():
@@ -38,7 +38,7 @@ class TestCreateSession:
 
     def test_create_session_registers_task_cwd(self, manager, monkeypatch):
         calls = []
-        monkeypatch.setattr("acp_adapter.session._register_task_cwd", lambda task_id, cwd: calls.append((task_id, cwd)))
+        monkeypatch.setattr("hermes_agent.acp.session._register_task_cwd", lambda task_id, cwd: calls.append((task_id, cwd)))
         state = manager.create_session(cwd="/tmp/work")
         assert calls == [(state.session_id, "/tmp/work")]
 
@@ -366,16 +366,16 @@ class TestPersistence:
                 api_mode=kwargs.get("api_mode"),
             )
 
-        monkeypatch.setattr("hermes_cli.config.load_config", lambda: {
+        monkeypatch.setattr("hermes_agent.cli.config.load_config", lambda: {
             "model": {"provider": runtime_choice["provider"], "default": "test-model"}
         })
         monkeypatch.setattr(
-            "hermes_cli.runtime_provider.resolve_runtime_provider",
+            "hermes_agent.cli.runtime_provider.resolve_runtime_provider",
             fake_resolve_runtime_provider,
         )
         db = SessionDB(tmp_path / "state.db")
 
-        with patch("run_agent.AIAgent", side_effect=fake_agent):
+        with patch("hermes_agent.agent.loop.AIAgent", side_effect=fake_agent):
             manager = SessionManager(db=db)
             state = manager.create_session(cwd="/work")
             manager.save_session(state.session_id)
@@ -406,16 +406,16 @@ class TestPersistence:
         def fake_agent(**kwargs):
             return SimpleNamespace(model=kwargs.get("model"), _print_fn=None)
 
-        monkeypatch.setattr("hermes_cli.config.load_config", lambda: {
+        monkeypatch.setattr("hermes_agent.cli.config.load_config", lambda: {
             "model": {"provider": "openrouter", "default": "test-model"}
         })
         monkeypatch.setattr(
-            "hermes_cli.runtime_provider.resolve_runtime_provider",
+            "hermes_agent.cli.runtime_provider.resolve_runtime_provider",
             fake_resolve_runtime_provider,
         )
         db = SessionDB(tmp_path / "state.db")
 
-        with patch("run_agent.AIAgent", side_effect=fake_agent):
+        with patch("hermes_agent.agent.loop.AIAgent", side_effect=fake_agent):
             manager = SessionManager(db=db)
             state = manager.create_session(cwd="/work")
 

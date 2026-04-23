@@ -10,7 +10,7 @@ can be active at a time, selected via ``context.engine`` in config.yaml.
 The default engine is ``"compressor"`` (the built-in ContextCompressor).
 
 Usage:
-    from plugins.context_engine import discover_context_engines, load_context_engine
+    from hermes_agent.plugins.context_engine import discover_context_engines, load_context_engine
 
     available = discover_context_engines()   # [(name, desc, available), ...]
     engine = load_context_engine("lcm")      # ContextEngine instance
@@ -105,7 +105,7 @@ def _load_engine_from_dir(engine_dir: Path) -> Optional["ContextEngine"]:
     - A top-level class that extends ContextEngine — we instantiate it
     """
     name = engine_dir.name
-    module_name = f"plugins.context_engine.{name}"
+    module_name = f"hermes_agent.plugins.context_engine.{name}"
     init_file = engine_dir / "__init__.py"
 
     if not init_file.exists():
@@ -117,10 +117,10 @@ def _load_engine_from_dir(engine_dir: Path) -> Optional["ContextEngine"]:
     else:
         # Handle relative imports within the plugin
         # First ensure the parent packages are registered
-        for parent in ("plugins", "plugins.context_engine"):
+        for parent in ("hermes_agent.plugins", "hermes_agent.plugins.context_engine"):
             if parent not in sys.modules:
                 parent_path = Path(__file__).parent
-                if parent == "plugins":
+                if parent == "hermes_agent.plugins":
                     parent_path = parent_path.parent
                 parent_init = parent_path / "__init__.py"
                 if parent_init.exists():
@@ -183,7 +183,7 @@ def _load_engine_from_dir(engine_dir: Path) -> Optional["ContextEngine"]:
             logger.debug("register() failed for %s: %s", name, e)
 
     # Fallback: find a ContextEngine subclass and instantiate it
-    from agent.context_engine import ContextEngine
+    from hermes_agent.agent.context.engine import ContextEngine
     for attr_name in dir(mod):
         attr = getattr(mod, attr_name, None)
         if (isinstance(attr, type) and issubclass(attr, ContextEngine)

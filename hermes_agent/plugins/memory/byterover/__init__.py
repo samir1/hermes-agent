@@ -26,8 +26,8 @@ import threading
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from agent.memory_provider import MemoryProvider
-from tools.registry import tool_error
+from hermes_agent.agent.memory.provider import MemoryProvider
+from hermes_agent.tools.registry import tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -115,7 +115,7 @@ def _run_brv(args: List[str], timeout: int = _QUERY_TIMEOUT,
 
 def _get_brv_cwd() -> Path:
     """Profile-scoped working directory for the brv context tree."""
-    from hermes_constants import get_hermes_home
+    from hermes_agent.constants import get_hermes_home
     return get_hermes_home() / "byterover"
 
 

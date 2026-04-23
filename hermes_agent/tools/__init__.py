@@ -7,8 +7,8 @@ eagerly import the full tool stack, because several subsystems load tools while
 
 Callers should import concrete submodules directly, for example:
 
-    import tools.web_tools
-    from tools import browser_tool
+    import hermes_agent.tools.web
+    from hermes_agent.tools.browser import tool as browser_tool
 
 Python will resolve those submodules via the package path without needing them
 to be re-exported here.

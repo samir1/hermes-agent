@@ -16,7 +16,7 @@ Required environment variables:
 - WANDB_API_KEY: API key for Weights & Biases metrics
 
 Usage:
-    from tools.rl_training_tool import (
+    from hermes_agent.tools.rl_training import (
         rl_list_environments,
         rl_select_environment,
         rl_get_current_config,
@@ -44,7 +44,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from hermes_constants import get_hermes_home
+from hermes_agent.constants import get_hermes_home
 
 logger = logging.getLogger(__name__)
 
@@ -1362,7 +1362,7 @@ def get_missing_keys() -> List[str]:
 # ---------------------------------------------------------------------------
 # Schemas + Registry
 # ---------------------------------------------------------------------------
-from tools.registry import registry
+from hermes_agent.tools.registry import registry
 
 RL_LIST_ENVIRONMENTS_SCHEMA = {"name": "rl_list_environments", "description": "List all available RL environments. Returns environment names, paths, and descriptions. TIP: Read the file_path with file tools to understand how each environment works (verifiers, data loading, rewards).", "parameters": {"type": "object", "properties": {}, "required": []}}
 RL_SELECT_ENVIRONMENT_SCHEMA = {"name": "rl_select_environment", "description": "Select an RL environment for training. Loads the environment's default configuration. After selecting, use rl_get_current_config() to see settings and rl_edit_config() to modify them.", "parameters": {"type": "object", "properties": {"name": {"type": "string", "description": "Name of the environment to select (from rl_list_environments)"}}, "required": ["name"]}}

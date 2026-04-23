@@ -11,8 +11,8 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from hermes_cli.config import get_hermes_home
-from utils import atomic_json_write
+from hermes_agent.cli.config import get_hermes_home
+from hermes_agent.utils import atomic_json_write
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,7 @@ def build_channel_directory(adapters: Dict[Any, Any]) -> Dict[str, Any]:
 
     Returns the directory dict and writes it to DIRECTORY_PATH.
     """
-    from gateway.config import Platform
+    from hermes_agent.gateway.config import Platform
 
     platforms: Dict[str, List[Dict[str, str]]] = {}
 
@@ -144,7 +144,7 @@ def _build_slack(adapter) -> List[Dict[str, str]]:
         return _build_from_sessions("slack")
 
     try:
-        from tools.send_message_tool import _send_slack  # noqa: F401
+        from hermes_agent.tools.send_message import _send_slack  # noqa: F401
         # Use the Slack Web API directly if available
     except Exception:
         pass

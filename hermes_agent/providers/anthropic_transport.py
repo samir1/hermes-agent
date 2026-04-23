@@ -6,8 +6,8 @@ This transport owns format conversion and normalization — NOT client lifecycle
 
 from typing import Any, Dict, List, Optional
 
-from agent.transports.base import ProviderTransport
-from agent.transports.types import NormalizedResponse
+from hermes_agent.providers.base import ProviderTransport
+from hermes_agent.providers.types import NormalizedResponse
 
 
 class AnthropicTransport(ProviderTransport):
@@ -27,14 +27,14 @@ class AnthropicTransport(ProviderTransport):
         kwargs:
             base_url: Optional[str] — affects thinking signature handling.
         """
-        from agent.anthropic_adapter import convert_messages_to_anthropic
+        from hermes_agent.providers.anthropic_adapter import convert_messages_to_anthropic
 
         base_url = kwargs.get("base_url")
         return convert_messages_to_anthropic(messages, base_url=base_url)
 
     def convert_tools(self, tools: List[Dict[str, Any]]) -> Any:
         """Convert OpenAI tool schemas to Anthropic input_schema format."""
-        from agent.anthropic_adapter import convert_tools_to_anthropic
+        from hermes_agent.providers.anthropic_adapter import convert_tools_to_anthropic
 
         return convert_tools_to_anthropic(tools)
 
@@ -59,7 +59,7 @@ class AnthropicTransport(ProviderTransport):
             base_url: str | None
             fast_mode: bool
         """
-        from agent.anthropic_adapter import build_anthropic_kwargs
+        from hermes_agent.providers.anthropic_adapter import build_anthropic_kwargs
 
         return build_anthropic_kwargs(
             model=model,
@@ -81,7 +81,7 @@ class AnthropicTransport(ProviderTransport):
         kwargs:
             strip_tool_prefix: bool — strip 'mcp_mcp_' prefixes from tool names.
         """
-        from agent.anthropic_adapter import normalize_anthropic_response_v2
+        from hermes_agent.providers.anthropic_adapter import normalize_anthropic_response_v2
 
         strip_tool_prefix = kwargs.get("strip_tool_prefix", False)
         return normalize_anthropic_response_v2(response, strip_tool_prefix=strip_tool_prefix)
@@ -124,6 +124,6 @@ class AnthropicTransport(ProviderTransport):
 
 
 # Auto-register on import
-from agent.transports import register_transport  # noqa: E402
+from hermes_agent.providers import register_transport  # noqa: E402
 
 register_transport("anthropic_messages", AnthropicTransport)

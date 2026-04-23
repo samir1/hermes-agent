@@ -30,14 +30,14 @@ from pathlib import Path
 import fire
 import yaml
 
-from hermes_constants import get_hermes_home, OPENROUTER_BASE_URL
+from hermes_agent.constants import get_hermes_home, OPENROUTER_BASE_URL
 
 # Load .env from ~/.hermes/.env first, then project root as dev fallback.
 # User-managed env files should override stale shell exports on restart.
 _hermes_home = get_hermes_home()
 _project_env = Path(__file__).parent.parent / '.env'
 
-from hermes_cli.env_loader import load_hermes_dotenv
+from hermes_agent.cli.env_loader import load_hermes_dotenv
 
 _loaded_env_paths = load_hermes_dotenv(hermes_home=_hermes_home, project_env=_project_env)
 for _env_path in _loaded_env_paths:
@@ -57,8 +57,8 @@ else:
     print(f"⚠️  tinker-atropos submodule not found, using: {Path(__file__).parent}")
 
 # Import agent and tools
-from run_agent import AIAgent
-from tools.rl_training_tool import get_missing_keys
+from hermes_agent.agent.loop import AIAgent
+from hermes_agent.tools.rl_training import get_missing_keys
 
 
 # ============================================================================
@@ -221,7 +221,7 @@ def check_tinker_atropos():
 
 def list_environments_sync():
     """List available environments (synchronous wrapper)."""
-    from tools.rl_training_tool import rl_list_environments
+    from hermes_agent.tools.rl_training import rl_list_environments
     import json
     
     async def _list():
@@ -401,7 +401,7 @@ def main(
                 
                 if user_input.lower() == 'status':
                     # Quick status check
-                    from tools.rl_training_tool import rl_list_runs
+                    from hermes_agent.tools.rl_training import rl_list_runs
                     import json
                     result = asyncio.run(rl_list_runs())
                     runs = json.loads(result)

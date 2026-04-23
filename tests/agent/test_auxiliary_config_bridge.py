@@ -13,8 +13,6 @@ from unittest.mock import patch, MagicMock
 import pytest
 import yaml
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
-
 
 def _run_auxiliary_bridge(config_dict, monkeypatch):
     """Simulate the auxiliary config → env var bridging logic shared by CLI and gateway.
@@ -227,8 +225,8 @@ class TestVisionModelOverride:
 
     def test_env_var_overrides_default(self, monkeypatch):
         monkeypatch.setenv("AUXILIARY_VISION_MODEL", "openai/gpt-4o")
-        from tools.vision_tools import _handle_vision_analyze
-        with patch("tools.vision_tools.vision_analyze_tool", new_callable=MagicMock) as mock_tool:
+        from hermes_agent.tools.vision import _handle_vision_analyze
+        with patch("hermes_agent.tools.vision.vision_analyze_tool", new_callable=MagicMock) as mock_tool:
             mock_tool.return_value = '{"success": true}'
             _handle_vision_analyze({"image_url": "http://test.jpg", "question": "test"})
             call_args = mock_tool.call_args
@@ -237,8 +235,8 @@ class TestVisionModelOverride:
 
     def test_default_model_when_no_override(self, monkeypatch):
         monkeypatch.delenv("AUXILIARY_VISION_MODEL", raising=False)
-        from tools.vision_tools import _handle_vision_analyze
-        with patch("tools.vision_tools.vision_analyze_tool", new_callable=MagicMock) as mock_tool:
+        from hermes_agent.tools.vision import _handle_vision_analyze
+        with patch("hermes_agent.tools.vision.vision_analyze_tool", new_callable=MagicMock) as mock_tool:
             mock_tool.return_value = '{"success": true}'
             _handle_vision_analyze({"image_url": "http://test.jpg", "question": "test"})
             call_args = mock_tool.call_args
@@ -254,11 +252,11 @@ class TestDefaultConfigShape:
     """Verify the DEFAULT_CONFIG in hermes_cli/config.py has correct auxiliary structure."""
 
     def test_auxiliary_section_exists(self):
-        from hermes_cli.config import DEFAULT_CONFIG
+        from hermes_agent.cli.config import DEFAULT_CONFIG
         assert "auxiliary" in DEFAULT_CONFIG
 
     def test_vision_task_structure(self):
-        from hermes_cli.config import DEFAULT_CONFIG
+        from hermes_agent.cli.config import DEFAULT_CONFIG
         vision = DEFAULT_CONFIG["auxiliary"]["vision"]
         assert "provider" in vision
         assert "model" in vision
@@ -266,7 +264,7 @@ class TestDefaultConfigShape:
         assert vision["model"] == ""
 
     def test_web_extract_task_structure(self):
-        from hermes_cli.config import DEFAULT_CONFIG
+        from hermes_agent.cli.config import DEFAULT_CONFIG
         web = DEFAULT_CONFIG["auxiliary"]["web_extract"]
         assert "provider" in web
         assert "model" in web
@@ -288,7 +286,7 @@ class TestCLIDefaultsHaveAuxiliaryKeys:
         # carries over keys from file_config that aren't in defaults.
         # So auxiliary config from config.yaml gets merged even though
         # cli.py's defaults dict doesn't define it.
-        import cli as _cli_mod
+        import hermes_agent.cli.repl as _cli_mod
         source = Path(_cli_mod.__file__).read_text()
         assert "auxiliary_config = defaults.get(\"auxiliary\"" in source
         assert "AUXILIARY_VISION_PROVIDER" in source

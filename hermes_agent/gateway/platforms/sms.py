@@ -30,14 +30,14 @@ from typing import Any, Dict, Optional, TYPE_CHECKING
 if TYPE_CHECKING:
     import aiohttp
 
-from gateway.config import Platform, PlatformConfig
-from gateway.platforms.base import (
+from hermes_agent.gateway.config import Platform, PlatformConfig
+from hermes_agent.gateway.platforms.base import (
     BasePlatformAdapter,
     MessageEvent,
     MessageType,
     SendResult,
 )
-from gateway.platforms.helpers import redact_phone, strip_markdown
+from hermes_agent.gateway.platforms.helpers import redact_phone, strip_markdown
 
 logger = logging.getLogger(__name__)
 

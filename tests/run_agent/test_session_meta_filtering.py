@@ -9,7 +9,7 @@ import logging
 import types
 from unittest.mock import MagicMock, patch
 
-from run_agent import AIAgent
+from hermes_agent.agent.loop import AIAgent
 
 
 # ---------------------------------------------------------------------------
@@ -49,7 +49,7 @@ class TestSanitizeApiMessagesRoleFilter:
             {"role": "user", "content": "hello"},
             {"role": "session_meta", "content": {"info": "test"}},
         ]
-        with caplog.at_level(logging.DEBUG, logger="run_agent"):
+        with caplog.at_level(logging.DEBUG, logger="hermes_agent.agent.loop"):
             AIAgent._sanitize_api_messages(msgs)
         assert any("invalid role" in r.message and "session_meta" in r.message for r in caplog.records)
 

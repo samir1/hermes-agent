@@ -16,8 +16,8 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any
 from enum import Enum
 
-from hermes_cli.config import get_hermes_home
-from utils import is_truthy_value
+from hermes_agent.cli.config import get_hermes_home
+from hermes_agent.utils import is_truthy_value
 
 logger = logging.getLogger(__name__)
 
@@ -821,7 +821,7 @@ def _validate_gateway_config(config: "GatewayConfig") -> None:
     # without changing placeholder values get a clear startup error instead
     # of a confusing "auth failed" from the platform API.
     try:
-        from hermes_cli.auth import has_usable_secret
+        from hermes_agent.cli.auth.auth import has_usable_secret
     except ImportError:
         has_usable_secret = None  # type: ignore[assignment]
 

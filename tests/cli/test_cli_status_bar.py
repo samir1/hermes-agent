@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-from cli import HermesCLI
+from hermes_agent.cli.repl import HermesCLI
 
 
 def _make_cli(model: str = "anthropic/claude-sonnet-4-20250514"):

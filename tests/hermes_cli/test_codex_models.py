@@ -3,9 +3,7 @@ import os
 import sys
 from unittest.mock import patch
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-
-from hermes_cli.codex_models import DEFAULT_CODEX_MODELS, get_codex_model_ids
+from hermes_agent.cli.models.codex import DEFAULT_CODEX_MODELS, get_codex_model_ids
 
 
 def test_get_codex_model_ids_prioritizes_default_and_cache(tmp_path, monkeypatch):
@@ -41,7 +39,7 @@ def test_setup_wizard_codex_import_resolves():
     """Regression test for #712: setup.py must import the correct function name."""
     # This mirrors the exact import used in hermes_cli/setup.py line 873.
     # A prior bug had 'get_codex_models' (wrong) instead of 'get_codex_model_ids'.
-    from hermes_cli.codex_models import get_codex_model_ids as setup_import
+    from hermes_agent.cli.models.codex import get_codex_model_ids as setup_import
     assert callable(setup_import)
 
 
@@ -59,7 +57,7 @@ def test_get_codex_model_ids_falls_back_to_curated_defaults(tmp_path, monkeypatc
 
 def test_get_codex_model_ids_adds_forward_compat_models_from_templates(monkeypatch):
     monkeypatch.setattr(
-        "hermes_cli.codex_models._fetch_models_from_api",
+        "hermes_agent.cli.models.codex._fetch_models_from_api",
         lambda access_token: ["gpt-5.2-codex"],
     )
 
@@ -69,16 +67,16 @@ def test_get_codex_model_ids_adds_forward_compat_models_from_templates(monkeypat
 
 
 def test_model_command_uses_runtime_access_token_for_codex_list(monkeypatch):
-    from hermes_cli.main import _model_flow_openai_codex
+    from hermes_agent.cli.main import _model_flow_openai_codex
 
     captured = {}
 
     monkeypatch.setattr(
-        "hermes_cli.auth.get_codex_auth_status",
+        "hermes_agent.cli.auth.auth.get_codex_auth_status",
         lambda: {"logged_in": True},
     )
     monkeypatch.setattr(
-        "hermes_cli.auth.resolve_codex_runtime_credentials",
+        "hermes_agent.cli.auth.auth.resolve_codex_runtime_credentials",
         lambda *args, **kwargs: {"api_key": "codex-access-token"},
     )
 
@@ -92,11 +90,11 @@ def test_model_command_uses_runtime_access_token_for_codex_list(monkeypatch):
         return None
 
     monkeypatch.setattr(
-        "hermes_cli.codex_models.get_codex_model_ids",
+        "hermes_agent.cli.models.codex.get_codex_model_ids",
         _fake_get_codex_model_ids,
     )
     monkeypatch.setattr(
-        "hermes_cli.auth._prompt_model_selection",
+        "hermes_agent.cli.auth.auth._prompt_model_selection",
         _fake_prompt_model_selection,
     )
 
@@ -112,8 +110,8 @@ def test_model_command_uses_runtime_access_token_for_codex_list(monkeypatch):
 
 def _make_cli(model="anthropic/claude-opus-4.6", **kwargs):
     """Create a HermesCLI with minimal mocking."""
-    import cli as _cli_mod
-    from cli import HermesCLI
+    import hermes_agent.cli.repl as _cli_mod
+    from hermes_agent.cli.repl import HermesCLI
 
     _clean_config = {
         "model": {
@@ -127,7 +125,7 @@ def _make_cli(model="anthropic/claude-opus-4.6", **kwargs):
     }
     clean_env = {"LLM_MODEL": "", "HERMES_MAX_ITERATIONS": ""}
     with (
-        patch("cli.get_tool_definitions", return_value=[]),
+        patch("hermes_agent.cli.repl.get_tool_definitions", return_value=[]),
         patch.dict("os.environ", clean_env, clear=False),
         patch.dict(_cli_mod.__dict__, {"CLI_CONFIG": _clean_config}),
     ):
@@ -210,7 +208,7 @@ class TestNormalizeModelForProvider:
 
     def test_default_model_replaced(self):
         """No model configured (empty default) gets swapped for codex."""
-        import cli as _cli_mod
+        import hermes_agent.cli.repl as _cli_mod
         _clean_config = {
             "model": {
                 "default": "",
@@ -223,16 +221,16 @@ class TestNormalizeModelForProvider:
         }
         # Don't pass model= so _model_is_default is True
         with (
-            patch("cli.get_tool_definitions", return_value=[]),
+            patch("hermes_agent.cli.repl.get_tool_definitions", return_value=[]),
             patch.dict("os.environ", {"LLM_MODEL": "", "HERMES_MAX_ITERATIONS": ""}, clear=False),
             patch.dict(_cli_mod.__dict__, {"CLI_CONFIG": _clean_config}),
         ):
-            from cli import HermesCLI
+            from hermes_agent.cli.repl import HermesCLI
             cli = HermesCLI()
 
         assert cli._model_is_default is True
         with patch(
-            "hermes_cli.codex_models.get_codex_model_ids",
+            "hermes_agent.cli.models.codex.get_codex_model_ids",
             return_value=["gpt-5.3-codex", "gpt-5.4"],
         ):
             changed = cli._normalize_model_for_provider("openai-codex")
@@ -242,7 +240,7 @@ class TestNormalizeModelForProvider:
 
     def test_default_fallback_when_api_fails(self):
         """No model configured falls back to gpt-5.3-codex when API unreachable."""
-        import cli as _cli_mod
+        import hermes_agent.cli.repl as _cli_mod
         _clean_config = {
             "model": {
                 "default": "",
@@ -254,15 +252,15 @@ class TestNormalizeModelForProvider:
             "terminal": {"env_type": "local"},
         }
         with (
-            patch("cli.get_tool_definitions", return_value=[]),
+            patch("hermes_agent.cli.repl.get_tool_definitions", return_value=[]),
             patch.dict("os.environ", {"LLM_MODEL": "", "HERMES_MAX_ITERATIONS": ""}, clear=False),
             patch.dict(_cli_mod.__dict__, {"CLI_CONFIG": _clean_config}),
         ):
-            from cli import HermesCLI
+            from hermes_agent.cli.repl import HermesCLI
             cli = HermesCLI()
 
         with patch(
-            "hermes_cli.codex_models.get_codex_model_ids",
+            "hermes_agent.cli.models.codex.get_codex_model_ids",
             side_effect=Exception("offline"),
         ):
             changed = cli._normalize_model_for_provider("openai-codex")

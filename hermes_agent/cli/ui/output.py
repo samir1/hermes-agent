@@ -7,7 +7,7 @@ mcp_config.py, and memory_setup.py.
 
 import getpass
 
-from hermes_cli.colors import Colors, color
+from hermes_agent.cli.ui.colors import Colors, color
 
 
 # ─── Print Helpers ────────────────────────────────────────────────────────────

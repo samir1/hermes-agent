@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from gateway.config import PlatformConfig
+from hermes_agent.gateway.config import PlatformConfig
 
 # The matrix adapter module is importable without mautrix installed
 # (module-level imports use try/except with stubs).  No need for
@@ -18,7 +18,7 @@ from gateway.config import PlatformConfig
 
 def _make_adapter(tmp_path=None):
     """Create a MatrixAdapter with mocked config."""
-    from gateway.platforms.matrix import MatrixAdapter
+    from hermes_agent.gateway.platforms.matrix import MatrixAdapter
 
     config = PlatformConfig(
         enabled=True,
@@ -481,7 +481,7 @@ async def test_auto_thread_tracks_participation(monkeypatch):
 class TestThreadPersistence:
     def test_empty_state_file(self, tmp_path, monkeypatch):
         """No state file → empty set."""
-        from gateway.platforms.helpers import ThreadParticipationTracker
+        from hermes_agent.gateway.platforms.helpers import ThreadParticipationTracker
 
         monkeypatch.setattr(
             ThreadParticipationTracker,
@@ -493,7 +493,7 @@ class TestThreadPersistence:
 
     def test_track_thread_persists(self, tmp_path, monkeypatch):
         """mark() writes to disk."""
-        from gateway.platforms.helpers import ThreadParticipationTracker
+        from hermes_agent.gateway.platforms.helpers import ThreadParticipationTracker
 
         state_path = tmp_path / "matrix_threads.json"
         monkeypatch.setattr(
@@ -509,7 +509,7 @@ class TestThreadPersistence:
 
     def test_threads_survive_reload(self, tmp_path, monkeypatch):
         """Persisted threads are loaded by a new adapter instance."""
-        from gateway.platforms.helpers import ThreadParticipationTracker
+        from hermes_agent.gateway.platforms.helpers import ThreadParticipationTracker
 
         state_path = tmp_path / "matrix_threads.json"
         state_path.write_text(json.dumps(["$t1", "$t2"]))
@@ -524,7 +524,7 @@ class TestThreadPersistence:
 
     def test_cap_max_tracked_threads(self, tmp_path, monkeypatch):
         """Thread set is trimmed to max_tracked."""
-        from gateway.platforms.helpers import ThreadParticipationTracker
+        from hermes_agent.gateway.platforms.helpers import ThreadParticipationTracker
 
         state_path = tmp_path / "matrix_threads.json"
         monkeypatch.setattr(

@@ -23,7 +23,7 @@ import time
 from dataclasses import dataclass
 from typing import Any, Optional
 
-logger = logging.getLogger("gateway.stream_consumer")
+logger = logging.getLogger(__name__)
 
 # Sentinel to signal the stream is complete
 _DONE = object()

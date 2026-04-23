@@ -30,7 +30,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, Optional, Any, List
 
-from agent.account_usage import fetch_account_usage, render_account_usage_lines
+from hermes_agent.providers.account_usage import fetch_account_usage, render_account_usage_lines
 
 # --- Agent cache tuning ---------------------------------------------------
 # Bounds the per-session AIAgent cache to prevent unbounded growth in
@@ -83,18 +83,15 @@ def _ensure_ssl_certs() -> None:
 
 _ensure_ssl_certs()
 
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 # Resolve Hermes home directory (respects HERMES_HOME override)
-from hermes_constants import get_hermes_home
-from utils import atomic_yaml_write, base_url_host_matches, is_truthy_value
+from hermes_agent.constants import get_hermes_home
+from hermes_agent.utils import atomic_yaml_write, base_url_host_matches, is_truthy_value
 _hermes_home = get_hermes_home()
 
 # Load environment variables from ~/.hermes/.env first.
 # User-managed env files should override stale shell exports on restart.
 from dotenv import load_dotenv  # backward-compat for tests that monkeypatch this symbol
-from hermes_cli.env_loader import load_hermes_dotenv
+from hermes_agent.cli.env_loader import load_hermes_dotenv
 _env_path = _hermes_home / '.env'
 load_hermes_dotenv(hermes_home=_hermes_home, project_env=Path(__file__).resolve().parents[1] / '.env')
 
@@ -111,7 +108,7 @@ if _config_path.exists():
         with open(_config_path, encoding="utf-8") as _f:
             _cfg = _yaml.safe_load(_f) or {}
         # Expand ${ENV_VAR} references before bridging to env vars.
-        from hermes_cli.config import _expand_env_vars
+        from hermes_agent.cli.config import _expand_env_vars
         _cfg = _expand_env_vars(_cfg)
         # Top-level simple values (fallback only — don't override .env)
         for _key, _val in _cfg.items():
@@ -232,7 +229,7 @@ if _config_path.exists():
 
 # Apply IPv4 preference if configured (before any HTTP clients are created).
 try:
-    from hermes_constants import apply_ipv4_preference
+    from hermes_agent.constants import apply_ipv4_preference
     _network_cfg = (_cfg if '_cfg' in dir() else {}).get("network", {})
     if isinstance(_network_cfg, dict) and _network_cfg.get("force_ipv4"):
         apply_ipv4_preference(force=True)
@@ -241,14 +238,14 @@ except Exception:
 
 # Validate config structure early — log warnings so gateway operators see problems
 try:
-    from hermes_cli.config import print_config_warnings
+    from hermes_agent.cli.config import print_config_warnings
     print_config_warnings()
 except Exception:
     pass
 
 # Warn if user has deprecated MESSAGING_CWD / TERMINAL_CWD in .env
 try:
-    from hermes_cli.config import warn_deprecated_cwd_env_vars
+    from hermes_agent.cli.config import warn_deprecated_cwd_env_vars
     warn_deprecated_cwd_env_vars()
 except Exception:
     pass
@@ -269,12 +266,12 @@ if not _configured_cwd or _configured_cwd in (".", "auto", "cwd"):
     _fallback = os.getenv("MESSAGING_CWD") or str(Path.home())
     os.environ["TERMINAL_CWD"] = _fallback
 
-from gateway.config import (
+from hermes_agent.gateway.config import (
     Platform,
     GatewayConfig,
     load_gateway_config,
 )
-from gateway.session import (
+from hermes_agent.gateway.session import (
     SessionStore,
     SessionSource,
     SessionContext,
@@ -283,14 +280,14 @@ from gateway.session import (
     build_session_key,
     is_shared_multi_user_session,
 )
-from gateway.delivery import DeliveryRouter
-from gateway.platforms.base import (
+from hermes_agent.gateway.delivery import DeliveryRouter
+from hermes_agent.gateway.platforms.base import (
     BasePlatformAdapter,
     MessageEvent,
     MessageType,
     merge_pending_message_event,
 )
-from gateway.restart import (
+from hermes_agent.gateway.restart import (
     DEFAULT_GATEWAY_RESTART_DRAIN_TIMEOUT,
     GATEWAY_SERVICE_RESTART_EXIT_CODE,
     parse_restart_drain_timeout,
@@ -350,7 +347,7 @@ _AGENT_PENDING_SENTINEL = object()
 
 def _resolve_runtime_agent_kwargs() -> dict:
     """Resolve provider credentials for gateway-created AIAgent instances."""
-    from hermes_cli.runtime_provider import (
+    from hermes_agent.cli.runtime_provider import (
         resolve_runtime_provider,
         format_runtime_provider_error,
     )
@@ -441,8 +438,8 @@ def _check_unavailable_skill(command_name: str) -> str | None:
     # Normalize: command uses hyphens, skill names may use hyphens or underscores
     normalized = command_name.lower().replace("_", "-")
     try:
-        from tools.skills_tool import _get_disabled_skill_names
-        from agent.skill_utils import get_all_skills_dirs
+        from hermes_agent.tools.skills.tool import _get_disabled_skill_names
+        from hermes_agent.agent.skill_utils import get_all_skills_dirs
         disabled = _get_disabled_skill_names()
 
         # Check disabled skills across all dirs (local + external)
@@ -460,7 +457,7 @@ def _check_unavailable_skill(command_name: str) -> str | None:
                     )
 
         # Check optional skills (shipped with repo but not installed)
-        from hermes_constants import get_optional_skills_dir
+        from hermes_agent.constants import get_optional_skills_dir
         repo_root = Path(__file__).resolve().parent.parent
         optional_dir = get_optional_skills_dir(repo_root / "optional-skills")
         if optional_dir.exists():
@@ -519,7 +516,7 @@ def _resolve_hermes_bin() -> Optional[list[str]]:
 
     Tries in order:
     1. ``shutil.which("hermes")`` — standard PATH lookup
-    2. ``sys.executable -m hermes_cli.main`` — fallback when Hermes is running
+    2. ``sys.executable -m hermes_agent.cli.main`` — fallback when Hermes is running
        from a venv/module invocation and the ``hermes`` shim is not on PATH
 
     Returns argv parts ready for quoting/joining, or ``None`` if neither works.
@@ -533,8 +530,8 @@ def _resolve_hermes_bin() -> Optional[list[str]]:
     try:
         import importlib.util
 
-        if importlib.util.find_spec("hermes_cli") is not None:
-            return [sys.executable, "-m", "hermes_cli.main"]
+        if importlib.util.find_spec("hermes_agent.cli") is not None:
+            return [sys.executable, "-m", "hermes_agent.cli.main"]
     except Exception:
         pass
 
@@ -634,7 +631,7 @@ class GatewayRunner:
         self._fallback_model = self._load_fallback_model()
 
         # Wire process registry into session store for reset protection
-        from tools.process_registry import process_registry
+        from hermes_agent.tools.process_registry import process_registry
         self.session_store = SessionStore(
             self.config.sessions_dir, self.config,
             has_active_processes_fn=lambda key: process_registry.has_active_for_session(key),
@@ -698,7 +695,7 @@ class GatewayRunner:
 
         # Ensure tirith security scanner is available (downloads if needed)
         try:
-            from tools.tirith_security import ensure_installed
+            from hermes_agent.tools.security.tirith import ensure_installed
             ensure_installed(log_failures=False)
         except Exception:
             pass  # Non-fatal — fail-open at scan time if unavailable
@@ -706,17 +703,17 @@ class GatewayRunner:
         # Initialize session database for session_search tool support
         self._session_db = None
         try:
-            from hermes_state import SessionDB
+            from hermes_agent.state import SessionDB
             self._session_db = SessionDB()
         except Exception as e:
             logger.debug("SQLite session store not available: %s", e)
         
         # DM pairing store for code-based user authorization
-        from gateway.pairing import PairingStore
+        from hermes_agent.gateway.pairing import PairingStore
         self.pairing_store = PairingStore()
         
         # Event hook system
-        from gateway.hooks import HookRegistry
+        from hermes_agent.gateway.hooks import HookRegistry
         self.hooks = HookRegistry()
 
         # Per-chat voice reply mode: "off" | "voice_only" | "all"
@@ -780,7 +777,7 @@ class GatewayRunner:
     def _has_setup_skill(self) -> bool:
         """Check if the hermes-agent-setup skill is installed."""
         try:
-            from tools.skill_manager_tool import _find_skill
+            from hermes_agent.tools.skills.manager import _find_skill
             return _find_skill("hermes-agent-setup") is not None
         except Exception:
             return False
@@ -896,7 +893,7 @@ class GatewayRunner:
             if not history or len(history) < 4:
                 return
 
-            from run_agent import AIAgent
+            from hermes_agent.agent.loop import AIAgent
             model, runtime_kwargs = self._resolve_session_agent_runtime(
                 session_key=session_key,
             )
@@ -929,7 +926,7 @@ class GatewayRunner:
                 # what's already saved and avoid overwriting newer entries.
                 _current_memory = ""
                 try:
-                    from tools.memory_tool import get_memory_dir
+                    from hermes_agent.tools.memory import get_memory_dir
                     _mem_dir = get_memory_dir()
                     for fname, label in [
                         ("MEMORY.md", "MEMORY (your personal notes)"),
@@ -1090,7 +1087,7 @@ class GatewayRunner:
         # doesn't fail with "model must be a non-empty string".
         if not model and runtime_kwargs.get("provider"):
             try:
-                from hermes_cli.models import get_default_model_for_provider
+                from hermes_agent.cli.models.models import get_default_model_for_provider
                 model = get_default_model_for_provider(runtime_kwargs["provider"])
                 if model:
                     logger.info(
@@ -1110,7 +1107,7 @@ class GatewayRunner:
         mode, attach `request_overrides` so the API call is marked
         accordingly.
         """
-        from hermes_cli.models import resolve_fast_mode_overrides
+        from hermes_agent.cli.models.models import resolve_fast_mode_overrides
 
         runtime = {
             "api_key": runtime_kwargs.get("api_key"),
@@ -1232,7 +1229,7 @@ class GatewayRunner:
 
     def _update_runtime_status(self, gateway_state: Optional[str] = None, exit_reason: Optional[str] = None) -> None:
         try:
-            from gateway.status import write_runtime_status
+            from hermes_agent.gateway.status import write_runtime_status
             write_runtime_status(
                 gateway_state=gateway_state,
                 exit_reason=exit_reason,
@@ -1251,7 +1248,7 @@ class GatewayRunner:
         error_message: Optional[str] = None,
     ) -> None:
         try:
-            from gateway.status import write_runtime_status
+            from hermes_agent.gateway.status import write_runtime_status
             write_runtime_status(
                 platform=platform,
                 platform_state=platform_state,
@@ -1328,7 +1325,7 @@ class GatewayRunner:
         "minimal", "low", "medium", "high", "xhigh". Returns None to use
         default (medium).
         """
-        from hermes_constants import parse_reasoning_effort
+        from hermes_agent.constants import parse_reasoning_effort
         effort = ""
         try:
             import yaml as _y
@@ -1546,7 +1543,7 @@ class GatewayRunner:
 
         # Store the message so it's processed as the next turn after the
         # interrupt causes the current run to exit.
-        from gateway.platforms.base import merge_pending_message_event
+        from hermes_agent.gateway.platforms.base import merge_pending_message_event
         merge_pending_message_event(adapter._pending_messages, session_key, event)
 
         # Interrupt the running agent — this aborts in-flight tool calls and
@@ -1727,7 +1724,7 @@ class GatewayRunner:
     def _finalize_shutdown_agents(self, active_agents: Dict[str, Any]) -> None:
         for agent in active_agents.values():
             try:
-                from hermes_cli.plugins import invoke_hook as _invoke_hook
+                from hermes_agent.cli.plugins import invoke_hook as _invoke_hook
                 _invoke_hook(
                     "on_session_finalize",
                     session_id=getattr(agent, "session_id", None),
@@ -1912,14 +1909,14 @@ class GatewayRunner:
         logger.info("Starting Hermes Gateway...")
         logger.info("Session storage: %s", self.config.sessions_dir)
         try:
-            from hermes_cli.profiles import get_active_profile_name
+            from hermes_agent.cli.profiles import get_active_profile_name
             _profile = get_active_profile_name()
             if _profile and _profile != "default":
                 logger.info("Active profile: %s", _profile)
         except Exception:
             pass
         try:
-            from gateway.status import write_runtime_status
+            from hermes_agent.gateway.status import write_runtime_status
             write_runtime_status(gateway_state="starting", exit_reason=None)
         except Exception:
             pass
@@ -1969,7 +1966,7 @@ class GatewayRunner:
         # so the discover_plugins() side-effect in model_tools.py is NOT
         # guaranteed to have run by the time we reach this point.
         try:
-            from hermes_cli.plugins import discover_plugins
+            from hermes_agent.cli.plugins import discover_plugins
             discover_plugins()
         except Exception:
             logger.debug(
@@ -1986,8 +1983,8 @@ class GatewayRunner:
         # hooks_auto_accept here would just duplicate that lookup.
         # Failures are logged but must never block gateway startup.
         try:
-            from hermes_cli.config import load_config
-            from agent.shell_hooks import register_from_config
+            from hermes_agent.cli.config import load_config
+            from hermes_agent.agent.shell_hooks import register_from_config
             register_from_config(load_config(), accept_hooks=False)
         except Exception:
             logger.debug(
@@ -2000,7 +1997,7 @@ class GatewayRunner:
         
         # Recover background processes from checkpoint (crash recovery)
         try:
-            from tools.process_registry import process_registry
+            from hermes_agent.tools.process_registry import process_registry
             recovered = process_registry.recover_from_checkpoint()
             if recovered:
                 logger.info("Recovered %s background process(es) from previous run", recovered)
@@ -2159,7 +2156,7 @@ class GatewayRunner:
                 reason = "; ".join(startup_nonretryable_errors)
                 logger.error("Gateway hit a non-retryable startup conflict: %s", reason)
                 try:
-                    from gateway.status import write_runtime_status
+                    from hermes_agent.gateway.status import write_runtime_status
                     write_runtime_status(gateway_state="startup_failed", exit_reason=reason)
                 except Exception:
                     pass
@@ -2169,7 +2166,7 @@ class GatewayRunner:
                 reason = "; ".join(startup_retryable_errors) or "all configured messaging platforms failed to connect"
                 logger.error("Gateway failed to connect any configured messaging platform: %s", reason)
                 try:
-                    from gateway.status import write_runtime_status
+                    from hermes_agent.gateway.status import write_runtime_status
                     write_runtime_status(gateway_state="startup_failed", exit_reason=reason)
                 except Exception:
                     pass
@@ -2196,7 +2193,7 @@ class GatewayRunner:
         
         # Build initial channel directory for send_message name resolution
         try:
-            from gateway.channel_directory import build_channel_directory
+            from hermes_agent.gateway.channel_directory import build_channel_directory
             directory = build_channel_directory(self.adapters)
             ch_count = sum(len(chs) for chs in directory.get("platforms", {}).values())
             logger.info("Channel directory built: %d target(s)", ch_count)
@@ -2220,7 +2217,7 @@ class GatewayRunner:
 
         # Drain any recovered process watchers (from crash recovery checkpoint)
         try:
-            from tools.process_registry import process_registry
+            from hermes_agent.tools.process_registry import process_registry
             while process_registry.pending_watchers:
                 watcher = process_registry.pending_watchers.pop(0)
                 asyncio.create_task(self._run_process_watcher(watcher))
@@ -2471,7 +2468,7 @@ class GatewayRunner:
 
                         # Rebuild channel directory with the new adapter
                         try:
-                            from gateway.channel_directory import build_channel_directory
+                            from hermes_agent.gateway.channel_directory import build_channel_directory
                             build_channel_directory(self.adapters)
                         except Exception:
                             pass
@@ -2639,17 +2636,17 @@ class GatewayRunner:
             # Global cleanup: kill any remaining tool subprocesses not tied
             # to a specific agent (catch-all for zombie prevention).
             try:
-                from tools.process_registry import process_registry
+                from hermes_agent.tools.process_registry import process_registry
                 process_registry.kill_all()
             except Exception:
                 pass
             try:
-                from tools.terminal_tool import cleanup_all_environments
+                from hermes_agent.tools.terminal import cleanup_all_environments
                 cleanup_all_environments()
             except Exception:
                 pass
             try:
-                from tools.browser_tool import cleanup_all_browsers
+                from hermes_agent.tools.browser.tool import cleanup_all_browsers
                 cleanup_all_browsers()
             except Exception:
                 pass
@@ -2668,7 +2665,7 @@ class GatewayRunner:
                 except Exception as _e:
                     logger.debug("SessionDB close error: %s", _e)
 
-            from gateway.status import remove_pid_file
+            from hermes_agent.gateway.status import remove_pid_file
             remove_pid_file()
 
             # Write a clean-shutdown marker so the next startup knows this
@@ -2731,77 +2728,77 @@ class GatewayRunner:
             )
 
         if platform == Platform.TELEGRAM:
-            from gateway.platforms.telegram import TelegramAdapter, check_telegram_requirements
+            from hermes_agent.gateway.platforms.telegram import TelegramAdapter, check_telegram_requirements
             if not check_telegram_requirements():
                 logger.warning("Telegram: python-telegram-bot not installed")
                 return None
             return TelegramAdapter(config)
         
         elif platform == Platform.DISCORD:
-            from gateway.platforms.discord import DiscordAdapter, check_discord_requirements
+            from hermes_agent.gateway.platforms.discord import DiscordAdapter, check_discord_requirements
             if not check_discord_requirements():
                 logger.warning("Discord: discord.py not installed")
                 return None
             return DiscordAdapter(config)
         
         elif platform == Platform.WHATSAPP:
-            from gateway.platforms.whatsapp import WhatsAppAdapter, check_whatsapp_requirements
+            from hermes_agent.gateway.platforms.whatsapp import WhatsAppAdapter, check_whatsapp_requirements
             if not check_whatsapp_requirements():
                 logger.warning("WhatsApp: Node.js not installed or bridge not configured")
                 return None
             return WhatsAppAdapter(config)
         
         elif platform == Platform.SLACK:
-            from gateway.platforms.slack import SlackAdapter, check_slack_requirements
+            from hermes_agent.gateway.platforms.slack import SlackAdapter, check_slack_requirements
             if not check_slack_requirements():
                 logger.warning("Slack: slack-bolt not installed. Run: pip install 'hermes-agent[slack]'")
                 return None
             return SlackAdapter(config)
 
         elif platform == Platform.SIGNAL:
-            from gateway.platforms.signal import SignalAdapter, check_signal_requirements
+            from hermes_agent.gateway.platforms.signal import SignalAdapter, check_signal_requirements
             if not check_signal_requirements():
                 logger.warning("Signal: SIGNAL_HTTP_URL or SIGNAL_ACCOUNT not configured")
                 return None
             return SignalAdapter(config)
 
         elif platform == Platform.HOMEASSISTANT:
-            from gateway.platforms.homeassistant import HomeAssistantAdapter, check_ha_requirements
+            from hermes_agent.gateway.platforms.homeassistant import HomeAssistantAdapter, check_ha_requirements
             if not check_ha_requirements():
                 logger.warning("HomeAssistant: aiohttp not installed or HASS_TOKEN not set")
                 return None
             return HomeAssistantAdapter(config)
 
         elif platform == Platform.EMAIL:
-            from gateway.platforms.email import EmailAdapter, check_email_requirements
+            from hermes_agent.gateway.platforms.email import EmailAdapter, check_email_requirements
             if not check_email_requirements():
                 logger.warning("Email: EMAIL_ADDRESS, EMAIL_PASSWORD, EMAIL_IMAP_HOST, or EMAIL_SMTP_HOST not set")
                 return None
             return EmailAdapter(config)
 
         elif platform == Platform.SMS:
-            from gateway.platforms.sms import SmsAdapter, check_sms_requirements
+            from hermes_agent.gateway.platforms.sms import SmsAdapter, check_sms_requirements
             if not check_sms_requirements():
                 logger.warning("SMS: aiohttp not installed or TWILIO_ACCOUNT_SID/TWILIO_AUTH_TOKEN not set")
                 return None
             return SmsAdapter(config)
 
         elif platform == Platform.DINGTALK:
-            from gateway.platforms.dingtalk import DingTalkAdapter, check_dingtalk_requirements
+            from hermes_agent.gateway.platforms.dingtalk import DingTalkAdapter, check_dingtalk_requirements
             if not check_dingtalk_requirements():
                 logger.warning("DingTalk: dingtalk-stream not installed or DINGTALK_CLIENT_ID/SECRET not set")
                 return None
             return DingTalkAdapter(config)
 
         elif platform == Platform.FEISHU:
-            from gateway.platforms.feishu import FeishuAdapter, check_feishu_requirements
+            from hermes_agent.gateway.platforms.feishu import FeishuAdapter, check_feishu_requirements
             if not check_feishu_requirements():
                 logger.warning("Feishu: lark-oapi not installed or FEISHU_APP_ID/SECRET not set")
                 return None
             return FeishuAdapter(config)
 
         elif platform == Platform.WECOM_CALLBACK:
-            from gateway.platforms.wecom_callback import (
+            from hermes_agent.gateway.platforms.wecom_callback import (
                 WecomCallbackAdapter,
                 check_wecom_callback_requirements,
             )
@@ -2811,28 +2808,28 @@ class GatewayRunner:
             return WecomCallbackAdapter(config)
 
         elif platform == Platform.WECOM:
-            from gateway.platforms.wecom import WeComAdapter, check_wecom_requirements
+            from hermes_agent.gateway.platforms.wecom import WeComAdapter, check_wecom_requirements
             if not check_wecom_requirements():
                 logger.warning("WeCom: aiohttp not installed or WECOM_BOT_ID/SECRET not set")
                 return None
             return WeComAdapter(config)
 
         elif platform == Platform.WEIXIN:
-            from gateway.platforms.weixin import WeixinAdapter, check_weixin_requirements
+            from hermes_agent.gateway.platforms.weixin import WeixinAdapter, check_weixin_requirements
             if not check_weixin_requirements():
                 logger.warning("Weixin: aiohttp/cryptography not installed")
                 return None
             return WeixinAdapter(config)
 
         elif platform == Platform.MATTERMOST:
-            from gateway.platforms.mattermost import MattermostAdapter, check_mattermost_requirements
+            from hermes_agent.gateway.platforms.mattermost import MattermostAdapter, check_mattermost_requirements
             if not check_mattermost_requirements():
                 logger.warning("Mattermost: MATTERMOST_TOKEN or MATTERMOST_URL not set, or aiohttp missing")
                 return None
             return MattermostAdapter(config)
 
         elif platform == Platform.MATRIX:
-            from gateway.platforms.matrix import MatrixAdapter, check_matrix_requirements
+            from hermes_agent.gateway.platforms.matrix import MatrixAdapter, check_matrix_requirements
             if not check_matrix_requirements():
                 logger.warning("Matrix: mautrix not installed or credentials not set. Run: pip install 'mautrix[encryption]'")
                 return None
@@ -2844,11 +2841,11 @@ class GatewayRunner:
             except ImportError:
                 logger.warning("API Server: aiohttp not installed")
                 return None
-            from gateway.platforms.api_server import APIServerAdapter
+            from hermes_agent.gateway.platforms.api_server import APIServerAdapter
             return APIServerAdapter(config)
 
         elif platform == Platform.WEBHOOK:
-            from gateway.platforms.webhook import WebhookAdapter, check_webhook_requirements
+            from hermes_agent.gateway.platforms.webhook import WebhookAdapter, check_webhook_requirements
             if not check_webhook_requirements():
                 logger.warning("Webhook: aiohttp not installed")
                 return None
@@ -2857,14 +2854,14 @@ class GatewayRunner:
             return adapter
 
         elif platform == Platform.BLUEBUBBLES:
-            from gateway.platforms.bluebubbles import BlueBubblesAdapter, check_bluebubbles_requirements
+            from hermes_agent.gateway.platforms.bluebubbles import BlueBubblesAdapter, check_bluebubbles_requirements
             if not check_bluebubbles_requirements():
                 logger.warning("BlueBubbles: aiohttp/httpx missing or BLUEBUBBLES_SERVER_URL/BLUEBUBBLES_PASSWORD not configured")
                 return None
             return BlueBubblesAdapter(config)
 
         elif platform == Platform.QQBOT:
-            from gateway.platforms.qqbot import QQAdapter, check_qq_requirements
+            from hermes_agent.gateway.platforms.qqbot import QQAdapter, check_qq_requirements
             if not check_qq_requirements():
                 logger.warning("QQBot: aiohttp/httpx missing or QQ_APP_ID/QQ_CLIENT_SECRET not configured")
                 return None
@@ -3228,7 +3225,7 @@ class GatewayRunner:
                 return await self._handle_status_command(event)
 
             # Resolve the command once for all early-intercept checks below.
-            from hermes_cli.commands import (
+            from hermes_agent.cli.commands import (
                 ACTIVE_SESSION_BYPASS_COMMANDS as _DEDICATED_HANDLERS,
                 resolve_command as _resolve_cmd_inner,
             )
@@ -3472,7 +3469,7 @@ class GatewayRunner:
         # Emit command:* hook for any recognized slash command.
         # GATEWAY_KNOWN_COMMANDS is derived from the central COMMAND_REGISTRY
         # in hermes_cli/commands.py — no hardcoded set to maintain here.
-        from hermes_cli.commands import GATEWAY_KNOWN_COMMANDS, resolve_command as _resolve_cmd
+        from hermes_agent.cli.commands import GATEWAY_KNOWN_COMMANDS, resolve_command as _resolve_cmd
         if command and command in GATEWAY_KNOWN_COMMANDS:
             await self.hooks.emit(f"command:{command}", {
                 "platform": source.platform.value if source.platform else "",
@@ -3532,7 +3529,7 @@ class GatewayRunner:
 
         if canonical == "plan":
             try:
-                from agent.skill_commands import build_plan_path, build_skill_invocation_message
+                from hermes_agent.agent.skill_commands import build_plan_path, build_skill_invocation_message
 
                 user_instruction = event.get_command_args().strip()
                 plan_path = build_plan_path(user_instruction)
@@ -3669,7 +3666,7 @@ class GatewayRunner:
         # Plugin-registered slash commands
         if command:
             try:
-                from hermes_cli.plugins import get_plugin_command_handler
+                from hermes_agent.cli.plugins import get_plugin_command_handler
                 # Normalize underscores to hyphens so Telegram's underscored
                 # autocomplete form matches plugin commands registered with
                 # hyphens. See hermes_cli/commands.py:_build_telegram_menu.
@@ -3689,7 +3686,7 @@ class GatewayRunner:
         # to the claude-code skill.
         if command:
             try:
-                from agent.skill_commands import (
+                from hermes_agent.agent.skill_commands import (
                     get_skill_commands,
                     build_skill_invocation_message,
                     resolve_skill_command_key,
@@ -3704,7 +3701,7 @@ class GatewayRunner:
                     _skill_name = skill_cmds[cmd_key].get("name", "")
                     _plat = source.platform.value if source.platform else None
                     if _plat and _skill_name:
-                        from agent.skill_utils import get_disabled_skill_names as _get_plat_disabled
+                        from hermes_agent.agent.skill_utils import get_disabled_skill_names as _get_plat_disabled
                         if _skill_name in _get_plat_disabled(platform=_plat):
                             return (
                                 f"The **{_skill_name}** skill is disabled for {_plat}.\n"
@@ -3900,8 +3897,8 @@ class GatewayRunner:
 
         if "@" in message_text:
             try:
-                from agent.context_references import preprocess_context_references_async
-                from agent.model_metadata import get_model_context_length
+                from hermes_agent.agent.context.references import preprocess_context_references_async
+                from hermes_agent.providers.metadata import get_model_context_length
 
                 _msg_cwd = os.environ.get("TERMINAL_CWD", os.path.expanduser("~"))
                 _msg_runtime = _resolve_runtime_agent_kwargs()
@@ -4050,7 +4047,7 @@ class GatewayRunner:
         if _is_new_session and _auto:
             _skill_names = [_auto] if isinstance(_auto, str) else list(_auto)
             try:
-                from agent.skill_commands import _load_skill_payload, _build_skill_message
+                from hermes_agent.agent.skill_commands import _load_skill_payload, _build_skill_message
                 _combined_parts: list[str] = []
                 _loaded_names: list[str] = []
                 for _sname in _skill_names:
@@ -4097,7 +4094,7 @@ class GatewayRunner:
         #    means hygiene fires a bit early — safe and harmless.
         # -----------------------------------------------------------------
         if history and len(history) >= 4:
-            from agent.model_metadata import (
+            from hermes_agent.providers.metadata import (
                 estimate_messages_tokens_rough,
                 get_model_context_length,
             )
@@ -4170,7 +4167,7 @@ class GatewayRunner:
                 if _hyg_config_context_length is None and _hyg_base_url:
                     try:
                         try:
-                            from hermes_cli.config import get_compatible_custom_providers as _gw_gcp
+                            from hermes_agent.cli.config import get_compatible_custom_providers as _gw_gcp
                             _hyg_custom_providers = _gw_gcp(_hyg_data)
                         except Exception:
                             _hyg_custom_providers = _hyg_data.get("custom_providers")
@@ -4252,7 +4249,7 @@ class GatewayRunner:
                     _hyg_meta = {"thread_id": source.thread_id} if source.thread_id else None
 
                     try:
-                        from run_agent import AIAgent
+                        from hermes_agent.agent.loop import AIAgent
 
                         _hyg_model, _hyg_runtime = self._resolve_session_agent_runtime(
                             source=source,
@@ -4361,7 +4358,7 @@ class GatewayRunner:
         # is speaking, without needing a separate tool call.
         # -----------------------------------------------------------------
         if source.platform == Platform.DISCORD:
-            from gateway.platforms.discord import DiscordAdapter
+            from hermes_agent.gateway.platforms.discord import DiscordAdapter
             adapter = self.adapters.get(Platform.DISCORD)
             guild_id = self._get_guild_id(event)
             if guild_id and isinstance(adapter, DiscordAdapter):
@@ -4521,7 +4518,7 @@ class GatewayRunner:
 
             # Prepend reasoning/thinking if display is enabled (per-platform)
             try:
-                from gateway.display_config import resolve_display_setting as _rds
+                from hermes_agent.gateway.display_config import resolve_display_setting as _rds
                 _show_reasoning_effective = _rds(
                     _load_gateway_config(),
                     _platform_config_key(source.platform),
@@ -4550,7 +4547,7 @@ class GatewayRunner:
             
             # Check for pending process watchers (check_interval on background processes)
             try:
-                from tools.process_registry import process_registry
+                from hermes_agent.tools.process_registry import process_registry
                 while process_registry.pending_watchers:
                     watcher = process_registry.pending_watchers.pop(0)
                     asyncio.create_task(self._run_process_watcher(watcher))
@@ -4562,7 +4559,7 @@ class GatewayRunner:
             # already handled by the per-process watcher task above, so we only
             # inject watch-type events here.
             try:
-                from tools.process_registry import process_registry as _pr
+                from hermes_agent.tools.process_registry import process_registry as _pr
                 _watch_events = []
                 while not _pr.completion_queue.empty():
                     evt = _pr.completion_queue.get_nowait()
@@ -4781,7 +4778,7 @@ class GatewayRunner:
         users can immediately see if context detection went wrong (e.g.
         local models falling to the 128K default).
         """
-        from agent.model_metadata import get_model_context_length, DEFAULT_FALLBACK_CONTEXT
+        from hermes_agent.providers.metadata import get_model_context_length, DEFAULT_FALLBACK_CONTEXT
 
         model = _resolve_gateway_model()
         config_context_length = None
@@ -4886,13 +4883,13 @@ class GatewayRunner:
         self._evict_cached_agent(session_key)
 
         try:
-            from tools.env_passthrough import clear_env_passthrough
+            from hermes_agent.tools.env_passthrough import clear_env_passthrough
             clear_env_passthrough()
         except Exception:
             pass
 
         try:
-            from tools.credential_files import clear_credential_files
+            from hermes_agent.tools.credential_files import clear_credential_files
             clear_credential_files()
         except Exception:
             pass
@@ -4906,7 +4903,7 @@ class GatewayRunner:
 
         # Fire plugin on_session_finalize hook (session boundary)
         try:
-            from hermes_cli.plugins import invoke_hook as _invoke_hook
+            from hermes_agent.cli.plugins import invoke_hook as _invoke_hook
             _old_sid = old_entry.session_id if old_entry else None
             _invoke_hook("on_session_finalize", session_id=_old_sid,
                          platform=source.platform.value if source.platform else "")
@@ -4942,7 +4939,7 @@ class GatewayRunner:
 
         # Fire plugin on_session_reset hook (new session guaranteed to exist)
         try:
-            from hermes_cli.plugins import invoke_hook as _invoke_hook
+            from hermes_agent.cli.plugins import invoke_hook as _invoke_hook
             _new_sid = new_entry.session_id if new_entry else None
             _invoke_hook("on_session_reset", session_id=_new_sid,
                          platform=source.platform.value if source.platform else "")
@@ -4951,7 +4948,7 @@ class GatewayRunner:
 
         # Append a random tip to the reset message
         try:
-            from hermes_cli.tips import get_random_tip
+            from hermes_agent.cli.ui.tips import get_random_tip
             _tip_line = f"\n✦ Tip: {get_random_tip()}"
         except Exception:
             _tip_line = ""
@@ -4962,8 +4959,8 @@ class GatewayRunner:
     
     async def _handle_profile_command(self, event: MessageEvent) -> str:
         """Handle /profile — show active profile name and home directory."""
-        from hermes_constants import display_hermes_home
-        from hermes_cli.profiles import get_active_profile_name
+        from hermes_agent.constants import display_hermes_home
+        from hermes_agent.cli.profiles import get_active_profile_name
 
         display = display_hermes_home()
         profile_name = get_active_profile_name()
@@ -5013,7 +5010,7 @@ class GatewayRunner:
 
     async def _handle_agents_command(self, event: MessageEvent) -> str:
         """Handle /agents command - list active agents and running tasks."""
-        from tools.process_registry import format_uptime_short, process_registry
+        from hermes_agent.tools.process_registry import format_uptime_short, process_registry
 
         now = time.time()
         current_session_key = self._session_key_for_source(event.source)
@@ -5268,13 +5265,13 @@ class GatewayRunner:
 
     async def _handle_help_command(self, event: MessageEvent) -> str:
         """Handle /help command - list available commands."""
-        from hermes_cli.commands import gateway_help_lines
+        from hermes_agent.cli.commands import gateway_help_lines
         lines = [
             "📖 **Hermes Commands**\n",
             *gateway_help_lines(),
         ]
         try:
-            from agent.skill_commands import get_skill_commands
+            from hermes_agent.agent.skill_commands import get_skill_commands
             skill_cmds = get_skill_commands()
             if skill_cmds:
                 lines.append(f"\n⚡ **Skill Commands** ({len(skill_cmds)} active):")
@@ -5290,7 +5287,7 @@ class GatewayRunner:
 
     async def _handle_commands_command(self, event: MessageEvent) -> str:
         """Handle /commands [page] - paginated list of all commands and skills."""
-        from hermes_cli.commands import gateway_help_lines
+        from hermes_agent.cli.commands import gateway_help_lines
 
         raw_args = event.get_command_args().strip()
         if raw_args:
@@ -5304,7 +5301,7 @@ class GatewayRunner:
         # Build combined entry list: built-in commands + skill commands
         entries = list(gateway_help_lines())
         try:
-            from agent.skill_commands import get_skill_commands
+            from hermes_agent.agent.skill_commands import get_skill_commands
             skill_cmds = get_skill_commands()
             if skill_cmds:
                 entries.append("")
@@ -5318,7 +5315,7 @@ class GatewayRunner:
         if not entries:
             return "No commands available."
 
-        from gateway.config import Platform
+        from hermes_agent.gateway.config import Platform
         page_size = 15 if event.source.platform == Platform.TELEGRAM else 20
         total_pages = max(1, (len(entries) + page_size - 1) // page_size)
         page = max(1, min(requested_page, total_pages))
@@ -5352,11 +5349,11 @@ class GatewayRunner:
           /model --provider <provider>        — switch to provider, auto-detect model
         """
         import yaml
-        from hermes_cli.model_switch import (
+        from hermes_agent.cli.models.switch import (
             switch_model as _switch_model, parse_model_flags,
             list_authenticated_providers,
         )
-        from hermes_cli.providers import get_label
+        from hermes_agent.cli.providers import get_label
 
         raw_args = event.get_command_args().strip()
 
@@ -5382,7 +5379,7 @@ class GatewayRunner:
                     current_base_url = model_cfg.get("base_url", "")
                 user_provs = cfg.get("providers")
                 try:
-                    from hermes_cli.config import get_compatible_custom_providers
+                    from hermes_agent.cli.config import get_compatible_custom_providers
                     custom_provs = get_compatible_custom_providers(cfg)
                 except Exception:
                     custom_provs = cfg.get("custom_providers")
@@ -5617,7 +5614,7 @@ class GatewayRunner:
                 model_cfg["provider"] = result.target_provider
                 if result.base_url:
                     model_cfg["base_url"] = result.base_url
-                from hermes_cli.config import save_config
+                from hermes_agent.cli.config import save_config
                 save_config(cfg)
             except Exception as e:
                 logger.warning("Failed to persist model switch: %s", e)
@@ -5639,7 +5636,7 @@ class GatewayRunner:
             lines.append(f"Capabilities: {mi.format_capabilities()}")
         else:
             try:
-                from agent.model_metadata import get_model_context_length
+                from hermes_agent.providers.metadata import get_model_context_length
                 ctx = get_model_context_length(
                     result.new_model,
                     base_url=result.base_url or current_base_url,
@@ -5671,7 +5668,7 @@ class GatewayRunner:
     async def _handle_provider_command(self, event: MessageEvent) -> str:
         """Handle /provider command - show available providers."""
         import yaml
-        from hermes_cli.models import (
+        from hermes_agent.cli.models.models import (
             list_available_providers,
             normalize_provider,
             _PROVIDER_LABELS,
@@ -5694,7 +5691,7 @@ class GatewayRunner:
         current_provider = normalize_provider(current_provider)
         if current_provider == "auto":
             try:
-                from hermes_cli.auth import resolve_provider as _resolve_provider
+                from hermes_agent.cli.auth.auth import resolve_provider as _resolve_provider
                 current_provider = _resolve_provider(current_provider)
             except Exception:
                 current_provider = "openrouter"
@@ -5728,7 +5725,7 @@ class GatewayRunner:
     async def _handle_personality_command(self, event: MessageEvent) -> str:
         """Handle /personality command - list or set a personality."""
         import yaml
-        from hermes_constants import display_hermes_home
+        from hermes_agent.constants import display_hermes_home
 
         args = event.get_command_args().strip().lower()
         config_path = _hermes_home / 'config.yaml'
@@ -5950,7 +5947,7 @@ class GatewayRunner:
                 "all": "TTS (voice reply to all messages)",
             }
             # Append voice channel info if connected
-            from gateway.platforms.discord import DiscordAdapter
+            from hermes_agent.gateway.platforms.discord import DiscordAdapter
             adapter = self.adapters.get(event.source.platform)
             guild_id = self._get_guild_id(event)
             if guild_id and isinstance(adapter, DiscordAdapter):
@@ -5984,7 +5981,7 @@ class GatewayRunner:
 
     async def _handle_voice_channel_join(self, event: MessageEvent) -> str:
         """Join the user's current Discord voice channel."""
-        from gateway.platforms.discord import DiscordAdapter
+        from hermes_agent.gateway.platforms.discord import DiscordAdapter
         adapter = self.adapters.get(event.source.platform)
         if not isinstance(adapter, DiscordAdapter):
             return "Voice channels are not supported on this platform."
@@ -6033,7 +6030,7 @@ class GatewayRunner:
 
     async def _handle_voice_channel_leave(self, event: MessageEvent) -> str:
         """Leave the Discord voice channel."""
-        from gateway.platforms.discord import DiscordAdapter
+        from hermes_agent.gateway.platforms.discord import DiscordAdapter
         adapter = self.adapters.get(event.source.platform)
         guild_id = self._get_guild_id(event)
 
@@ -6183,7 +6180,7 @@ class GatewayRunner:
         audio_path = None
         actual_path = None
         try:
-            from tools.tts_tool import text_to_speech_tool, _strip_markdown_for_tts
+            from hermes_agent.tools.media.tts import text_to_speech_tool, _strip_markdown_for_tts
 
             tts_text = _strip_markdown_for_tts(text[:4000])
             if not tts_text:
@@ -6211,7 +6208,7 @@ class GatewayRunner:
             adapter = self.adapters.get(event.source.platform)
 
             # If connected to a voice channel, play there instead of sending a file
-            from gateway.platforms.discord import DiscordAdapter
+            from hermes_agent.gateway.platforms.discord import DiscordAdapter
             guild_id = self._get_guild_id(event)
             if (guild_id
                     and isinstance(adapter, DiscordAdapter)
@@ -6313,7 +6310,7 @@ class GatewayRunner:
 
     async def _handle_rollback_command(self, event: MessageEvent) -> str:
         """Handle /rollback command — list or restore filesystem checkpoints."""
-        from tools.checkpoint_manager import CheckpointManager, format_checkpoint_list
+        from hermes_agent.tools.checkpoint import CheckpointManager, format_checkpoint_list
 
         # Read checkpoint config from config.yaml
         cp_cfg = {}
@@ -6403,7 +6400,7 @@ class GatewayRunner:
         self, prompt: str, source: "SessionSource", task_id: str
     ) -> None:
         """Execute a background agent task and deliver the result to the chat."""
-        from run_agent import AIAgent
+        from hermes_agent.agent.loop import AIAgent
 
         adapter = self.adapters.get(source.platform)
         if not adapter:
@@ -6428,7 +6425,7 @@ class GatewayRunner:
 
             platform_key = _platform_config_key(source.platform)
 
-            from hermes_cli.tools_config import _get_platform_tools
+            from hermes_agent.cli.tools_config import _get_platform_tools
             enabled_toolsets = sorted(_get_platform_tools(user_config, platform_key))
 
             pr = self._provider_routing
@@ -6576,7 +6573,7 @@ class GatewayRunner:
         self, question: str, source, session_key: str, task_id: str,
     ) -> None:
         """Execute an ephemeral /btw side question and deliver the answer."""
-        from run_agent import AIAgent
+        from hermes_agent.agent.loop import AIAgent
 
         adapter = self.adapters.get(source.platform)
         if not adapter:
@@ -6785,7 +6782,7 @@ class GatewayRunner:
             )
 
         self._reasoning_config = parsed
-        if _save_config_key("agent.reasoning_effort", effort):
+        if _save_config_key("hermes_agent.agent.reasoning_effort", effort):
             return f"🧠 ✓ Reasoning effort set to `{effort}` (saved to config)\n_(takes effect on next message)_"
         else:
             return f"🧠 ✓ Reasoning effort set to `{effort}` (this session only)"
@@ -6793,7 +6790,7 @@ class GatewayRunner:
     async def _handle_fast_command(self, event: MessageEvent) -> str:
         """Handle /fast — mirror the CLI Priority Processing toggle in gateway chats."""
         import yaml
-        from hermes_cli.models import model_supports_fast_mode
+        from hermes_agent.cli.models.models import model_supports_fast_mode
 
         args = event.get_command_args().strip().lower()
         config_path = _hermes_home / "config.yaml"
@@ -6846,13 +6843,13 @@ class GatewayRunner:
                 "**Valid options:** normal, fast, status"
             )
 
-        if _save_config_key("agent.service_tier", saved_value):
+        if _save_config_key("hermes_agent.agent.service_tier", saved_value):
             return f"⚡ ✓ Priority Processing: **{label}** (saved to config)\n_(takes effect on next message)_"
         return f"⚡ ✓ Priority Processing: **{label}** (this session only)"
 
     async def _handle_yolo_command(self, event: MessageEvent) -> str:
         """Handle /yolo — toggle dangerous command approval bypass for this session only."""
-        from tools.approval import (
+        from hermes_agent.tools.security.approval import (
             disable_session_yolo,
             enable_session_yolo,
             is_session_yolo_enabled,
@@ -6908,7 +6905,7 @@ class GatewayRunner:
         }
 
         # Read current effective mode for this platform via the resolver
-        from gateway.display_config import resolve_display_setting
+        from hermes_agent.gateway.display_config import resolve_display_setting
         current = resolve_display_setting(user_config, platform_key, "tool_progress", "all")
         if current not in cycle:
             current = "all"
@@ -6952,9 +6949,9 @@ class GatewayRunner:
         focus_topic = (event.get_command_args() or "").strip() or None
 
         try:
-            from run_agent import AIAgent
-            from agent.manual_compression_feedback import summarize_manual_compression
-            from agent.model_metadata import estimate_messages_tokens_rough
+            from hermes_agent.agent.loop import AIAgent
+            from hermes_agent.agent.manual_compression_feedback import summarize_manual_compression
+            from hermes_agent.providers.metadata import estimate_messages_tokens_rough
 
             session_key = self._session_key_for_source(source)
             model, runtime_kwargs = self._resolve_session_agent_runtime(
@@ -7304,7 +7301,7 @@ class GatewayRunner:
             # Rate limits (when available from provider headers)
             rl_state = agent.get_rate_limit_state()
             if rl_state and rl_state.has_data:
-                from agent.rate_limit_tracker import format_rate_limit_compact
+                from hermes_agent.providers.rate_limiting import format_rate_limit_compact
                 lines.append(f"⏱️ **Rate Limits:** {format_rate_limit_compact(rl_state)}")
                 lines.append("")
 
@@ -7327,7 +7324,7 @@ class GatewayRunner:
 
             # Cost estimation
             try:
-                from agent.usage_pricing import CanonicalUsage, estimate_usage_cost
+                from hermes_agent.providers.pricing import CanonicalUsage, estimate_usage_cost
                 cost_result = estimate_usage_cost(
                     agent.model,
                     CanonicalUsage(
@@ -7365,7 +7362,7 @@ class GatewayRunner:
         session_entry = self.session_store.get_or_create_session(source)
         history = self.session_store.load_transcript(session_entry.session_id)
         if history:
-            from agent.model_metadata import estimate_messages_tokens_rough
+            from hermes_agent.providers.metadata import estimate_messages_tokens_rough
             msgs = [m for m in history if m.get("role") in ("user", "assistant") and m.get("content")]
             approx = estimate_messages_tokens_rough(msgs)
             lines = [
@@ -7413,8 +7410,8 @@ class GatewayRunner:
                     i += 1
 
         try:
-            from hermes_state import SessionDB
-            from agent.insights import InsightsEngine
+            from hermes_agent.state import SessionDB
+            from hermes_agent.agent.insights import InsightsEngine
 
             loop = asyncio.get_running_loop()
 
@@ -7435,7 +7432,7 @@ class GatewayRunner:
         """Handle /reload-mcp command -- disconnect and reconnect all MCP servers."""
         loop = asyncio.get_running_loop()
         try:
-            from tools.mcp_tool import shutdown_mcp_servers, discover_mcp_tools, _servers, _lock
+            from hermes_agent.tools.mcp.tool import shutdown_mcp_servers, discover_mcp_tools, _servers, _lock
 
             # Capture old server names before shutdown
             with _lock:
@@ -7527,7 +7524,7 @@ class GatewayRunner:
         source = event.source
         session_key = self._session_key_for_source(source)
 
-        from tools.approval import (
+        from hermes_agent.tools.security.approval import (
             resolve_gateway_approval, has_blocking_approval,
         )
 
@@ -7576,7 +7573,7 @@ class GatewayRunner:
         source = event.source
         session_key = self._session_key_for_source(source)
 
-        from tools.approval import (
+        from hermes_agent.tools.security.approval import (
             resolve_gateway_approval, has_blocking_approval,
         )
 
@@ -7619,7 +7616,7 @@ class GatewayRunner:
         full log uploads should use ``hermes debug share`` from the CLI.
         """
         import asyncio
-        from hermes_cli.debug import (
+        from hermes_agent.cli.debug import (
             _capture_dump, collect_debug_report,
             upload_to_pastebin, _schedule_auto_delete,
             _GATEWAY_PRIVACY_NOTICE,
@@ -7666,7 +7663,7 @@ class GatewayRunner:
         import shutil
         import subprocess
         from datetime import datetime
-        from hermes_cli.config import is_managed, format_managed_message
+        from hermes_agent.cli.config import is_managed, format_managed_message
 
         # Block non-messaging platforms (API server, webhooks, ACP)
         platform = event.source.platform
@@ -8091,7 +8088,7 @@ class GatewayRunner:
         Returns a list of reset tokens; pass them to ``_clear_session_env``
         in a ``finally`` block.
         """
-        from gateway.session_context import set_session_vars
+        from hermes_agent.gateway.session_context import set_session_vars
         return set_session_vars(
             platform=context.source.platform.value,
             chat_id=context.source.chat_id,
@@ -8104,7 +8101,7 @@ class GatewayRunner:
 
     def _clear_session_env(self, tokens: list) -> None:
         """Restore session context variables to their pre-handler values."""
-        from gateway.session_context import clear_session_vars
+        from hermes_agent.gateway.session_context import clear_session_vars
         clear_session_vars(tokens)
 
     async def _run_in_executor_with_context(self, func, *args):
@@ -8134,7 +8131,7 @@ class GatewayRunner:
         Returns:
             The enriched message string with vision descriptions prepended.
         """
-        from tools.vision_tools import vision_analyze_tool
+        from hermes_agent.tools.vision import vision_analyze_tool
 
         analysis_prompt = (
             "Describe everything visible in this image in thorough detail. "
@@ -8208,7 +8205,7 @@ class GatewayRunner:
                 return f"{disabled_note}\n\n{user_text}"
             return disabled_note
 
-        from tools.transcription_tools import transcribe_audio
+        from hermes_agent.tools.media.transcription import transcribe_audio
 
         enriched_parts = []
         for path in audio_paths:
@@ -8272,7 +8269,7 @@ class GatewayRunner:
         Falling back to the currently active foreground event is what causes
         cross-topic bleed, so don't do that.
         """
-        from gateway.session import SessionSource
+        from hermes_agent.gateway.session import SessionSource
 
         session_key = str(evt.get("session_key") or "").strip()
         derived_platform = ""
@@ -8373,7 +8370,7 @@ class GatewayRunner:
           - ``error``  — final message only when exit code != 0
           - ``off``    — no messages at all
         """
-        from tools.process_registry import process_registry
+        from hermes_agent.tools.process_registry import process_registry
 
         session_id = watcher["session_id"]
         interval = watcher["check_interval"]
@@ -8415,9 +8412,9 @@ class GatewayRunner:
             if session.exited:
                 # --- Agent-triggered completion: inject synthetic message ---
                 # Skip if the agent already consumed the result via wait/poll/log
-                from tools.process_registry import process_registry as _pr_check
+                from hermes_agent.tools.process_registry import process_registry as _pr_check
                 if agent_notify and not _pr_check.is_completion_consumed(session_id):
-                    from tools.ansi_strip import strip_ansi
+                    from hermes_agent.tools.ansi_strip import strip_ansi
                     _out = strip_ansi(session.output_buffer[-2000:]) if session.output_buffer else ""
                     synth_text = (
                         f"[SYSTEM: Background process {session_id} completed "
@@ -8946,12 +8943,12 @@ class GatewayRunner:
         _stream_consumer = None
         _scfg = getattr(getattr(self, "config", None), "streaming", None)
         if _scfg is None:
-            from gateway.config import StreamingConfig
+            from hermes_agent.gateway.config import StreamingConfig
             _scfg = StreamingConfig()
 
         platform_key = _platform_config_key(source.platform)
         user_config = _load_gateway_config()
-        from gateway.display_config import resolve_display_setting
+        from hermes_agent.gateway.display_config import resolve_display_setting
         _plat_streaming = resolve_display_setting(
             user_config, platform_key, "streaming"
         )
@@ -8968,7 +8965,7 @@ class GatewayRunner:
 
         if _streaming_enabled:
             try:
-                from gateway.stream_consumer import GatewayStreamConsumer, StreamConsumerConfig
+                from hermes_agent.gateway.stream_consumer import GatewayStreamConsumer, StreamConsumerConfig
                 _adapter = self.adapters.get(source.platform)
                 if _adapter:
                     _adapter_supports_edit = getattr(_adapter, "SUPPORTS_MESSAGE_EDITING", True)
@@ -9170,7 +9167,7 @@ class GatewayRunner:
                 event_message_id=event_message_id,
             )
 
-        from run_agent import AIAgent
+        from hermes_agent.agent.loop import AIAgent
         import queue
 
         def _run_still_current() -> bool:
@@ -9181,7 +9178,7 @@ class GatewayRunner:
         user_config = _load_gateway_config()
         platform_key = _platform_config_key(source.platform)
 
-        from hermes_cli.tools_config import _get_platform_tools
+        from hermes_agent.cli.tools_config import _get_platform_tools
         enabled_toolsets = sorted(_get_platform_tools(user_config, platform_key))
 
         display_config = user_config.get("display", {})
@@ -9191,11 +9188,11 @@ class GatewayRunner:
         # Per-platform display settings — resolve via display_config module
         # which checks display.platforms.<platform>.<key> first, then
         # display.<key> global, then built-in platform defaults.
-        from gateway.display_config import resolve_display_setting
+        from hermes_agent.gateway.display_config import resolve_display_setting
 
         # Apply tool preview length config (0 = no limit)
         try:
-            from agent.display import set_tool_preview_max_len
+            from hermes_agent.agent.display import set_tool_preview_max_len
             _tpl = resolve_display_setting(user_config, platform_key, "tool_preview_length", 0)
             set_tool_preview_max_len(int(_tpl) if _tpl else 0)
         except Exception:
@@ -9210,7 +9207,7 @@ class GatewayRunner:
         )
         # Disable tool progress for webhooks - they don't support message editing,
         # so each progress line would be sent as a separate message.
-        from gateway.config import Platform
+        from hermes_agent.gateway.config import Platform
         tool_progress_enabled = progress_mode != "off" and source.platform != Platform.WEBHOOK
         # Natural assistant status messages are intentionally independent from
         # tool progress and token streaming. Users can keep tool_progress quiet
@@ -9244,13 +9241,13 @@ class GatewayRunner:
             last_tool[0] = tool_name
             
             # Build progress message with primary argument preview
-            from agent.display import get_tool_emoji
+            from hermes_agent.agent.display import get_tool_emoji
             emoji = get_tool_emoji(tool_name, default="⚙️")
             
             # Verbose mode: show detailed arguments, respects tool_preview_length
             if progress_mode == "verbose":
                 if args:
-                    from agent.display import get_tool_preview_max_len
+                    from hermes_agent.agent.display import get_tool_preview_max_len
                     _pl = get_tool_preview_max_len()
                     args_str = json.dumps(args, ensure_ascii=False, default=str)
                     # When tool_preview_length is 0 (default), don't truncate
@@ -9270,7 +9267,7 @@ class GatewayRunner:
             # config (defaults to 40 chars when unset to keep gateway messages
             # compact — unlike CLI spinners, these persist as permanent messages).
             if preview:
-                from agent.display import get_tool_preview_max_len
+                from hermes_agent.agent.display import get_tool_preview_max_len
                 _pl = get_tool_preview_max_len()
                 _cap = _pl if _pl > 0 else 40
                 if len(preview) > _cap:
@@ -9561,7 +9558,7 @@ class GatewayRunner:
             _stream_delta_cb = None
             _scfg = getattr(getattr(self, 'config', None), 'streaming', None)
             if _scfg is None:
-                from gateway.config import StreamingConfig
+                from hermes_agent.gateway.config import StreamingConfig
                 _scfg = StreamingConfig()
 
             # Per-platform streaming gate: display.platforms.<plat>.streaming
@@ -9581,7 +9578,7 @@ class GatewayRunner:
             _want_interim_consumer = _want_interim_messages
             if _want_stream_deltas or _want_interim_consumer:
                 try:
-                    from gateway.stream_consumer import GatewayStreamConsumer, StreamConsumerConfig
+                    from hermes_agent.gateway.stream_consumer import GatewayStreamConsumer, StreamConsumerConfig
                     _adapter = self.adapters.get(source.platform)
                     if _adapter:
                         # Platforms that don't support editing sent messages
@@ -9849,7 +9846,7 @@ class GatewayRunner:
             # command approval blocks the agent thread (mirrors CLI input()).
             # The callback bridges sync→async to send the approval request
             # to the user immediately.
-            from tools.approval import (
+            from hermes_agent.tools.security.approval import (
                 register_gateway_notify,
                 reset_current_session_key,
                 set_current_session_key,
@@ -10085,7 +10082,7 @@ class GatewayRunner:
             # Auto-generate session title after first exchange (non-blocking)
             if final_response and self._session_db:
                 try:
-                    from agent.title_generator import maybe_auto_title
+                    from hermes_agent.agent.title_generator import maybe_auto_title
                     all_msgs = result_holder[0].get("messages", []) if result_holder[0] else []
                     maybe_auto_title(
                         self._session_db,
@@ -10473,7 +10470,7 @@ class GatewayRunner:
                 _pending_cmd_word = _pending_parts[0][1:].lower() if _pending_parts else ""
                 if _pending_cmd_word:
                     try:
-                        from hermes_cli.commands import resolve_command as _rc_pending
+                        from hermes_agent.cli.commands import resolve_command as _rc_pending
                         if _rc_pending(_pending_cmd_word):
                             logger.info(
                                 "Discarding command '/%s' from pending queue — "
@@ -10705,8 +10702,8 @@ def _start_cron_ticker(stop_event: threading.Event, adapters=None, loop=None, in
     Also refreshes the channel directory every 5 minutes and prunes the
     image/audio/document cache once per hour.
     """
-    from cron.scheduler import tick as cron_tick
-    from gateway.platforms.base import cleanup_image_cache, cleanup_document_cache
+    from hermes_agent.cron.scheduler import tick as cron_tick
+    from hermes_agent.gateway.platforms.base import cleanup_image_cache, cleanup_document_cache
 
     IMAGE_CACHE_EVERY = 60   # ticks — once per hour at default 60s interval
     CHANNEL_DIR_EVERY = 5    # ticks — every 5 minutes
@@ -10723,7 +10720,7 @@ def _start_cron_ticker(stop_event: threading.Event, adapters=None, loop=None, in
 
         if tick_count % CHANNEL_DIR_EVERY == 0 and adapters:
             try:
-                from gateway.channel_directory import build_channel_directory
+                from hermes_agent.gateway.channel_directory import build_channel_directory
                 build_channel_directory(adapters)
             except Exception as e:
                 logger.debug("Channel directory refresh error: %s", e)
@@ -10765,7 +10762,7 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
     # The PID file is scoped to HERMES_HOME, so future multi-profile
     # setups (each profile using a distinct HERMES_HOME) will naturally
     # allow concurrent instances without tripping this guard.
-    from gateway.status import get_running_pid, remove_pid_file, terminate_pid
+    from hermes_agent.gateway.status import get_running_pid, remove_pid_file, terminate_pid
     existing_pid = get_running_pid()
     if existing_pid is not None and existing_pid != os.getpid():
         if replace:
@@ -10779,7 +10776,7 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
             # Restart=on-failure and start a flap loop against us).
             # Best-effort — proceed even if the write fails.
             try:
-                from gateway.status import write_takeover_marker
+                from hermes_agent.gateway.status import write_takeover_marker
                 write_takeover_marker(existing_pid)
             except Exception as e:
                 logger.debug("Could not write takeover marker: %s", e)
@@ -10795,7 +10792,7 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
                 # Marker is scoped to a specific target; clean it up on
                 # give-up so it doesn't grief an unrelated future shutdown.
                 try:
-                    from gateway.status import clear_takeover_marker
+                    from hermes_agent.gateway.status import clear_takeover_marker
                     clear_takeover_marker()
                 except Exception:
                     pass
@@ -10828,7 +10825,7 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
             # Clean up any takeover marker the old process didn't consume
             # (e.g. SIGKILL'd before its shutdown handler could read it).
             try:
-                from gateway.status import clear_takeover_marker
+                from hermes_agent.gateway.status import clear_takeover_marker
                 clear_takeover_marker()
             except Exception:
                 pass
@@ -10836,7 +10833,7 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
             # Stopped (Ctrl+Z) processes don't release locks on exit,
             # leaving stale lock files that block the new gateway from starting.
             try:
-                from gateway.status import release_all_scoped_locks
+                from hermes_agent.gateway.status import release_all_scoped_locks
                 _released = release_all_scoped_locks()
                 if _released:
                     logger.info("Released %d stale scoped lock(s) from old gateway.", _released)
@@ -10859,7 +10856,7 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
 
     # Sync bundled skills on gateway start (fast -- skips unchanged)
     try:
-        from tools.skills_sync import sync_skills
+        from hermes_agent.tools.skills.sync import sync_skills
         sync_skills(quiet=True)
     except Exception:
         pass
@@ -10867,7 +10864,7 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
     # Centralized logging — agent.log (INFO+), errors.log (WARNING+),
     # and gateway.log (INFO+, gateway-component records only).
     # Idempotent, so repeated calls from AIAgent.__init__ won't duplicate.
-    from hermes_logging import setup_logging
+    from hermes_agent.logging import setup_logging
     setup_logging(hermes_home=_hermes_home, mode="gateway")
 
     # Optional stderr handler — level driven by -v/-q flags on the CLI.
@@ -10876,7 +10873,7 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
     # verbosity=1    (-v):         INFO and above
     # verbosity=2+   (-vv/-vvv):   DEBUG
     if verbosity is not None:
-        from agent.redact import RedactingFormatter
+        from hermes_agent.agent.redact import RedactingFormatter
 
         _stderr_level = {0: logging.WARNING, 1: logging.INFO}.get(verbosity, logging.DEBUG)
         _stderr_handler = logging.StreamHandler()
@@ -10908,7 +10905,7 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
         # gateway.service from pre-rename installs).
         planned_takeover = False
         try:
-            from gateway.status import consume_takeover_marker_for_self
+            from hermes_agent.gateway.status import consume_takeover_marker_for_self
             planned_takeover = consume_takeover_marker_for_self()
         except Exception as e:
             logger.debug("Takeover marker check failed: %s", e)
@@ -10970,7 +10967,7 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
     # Telegram polling, Discord gateway sockets, etc. The loser exits
     # cleanly before touching any external service.
     import atexit
-    from gateway.status import write_pid_file, remove_pid_file, get_running_pid
+    from hermes_agent.gateway.status import write_pid_file, remove_pid_file, get_running_pid
     _current_pid = get_running_pid()
     if _current_pid is not None and _current_pid != os.getpid():
         logger.error(
@@ -11022,7 +11019,7 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
 
     # Close MCP server connections
     try:
-        from tools.mcp_tool import shutdown_mcp_servers
+        from hermes_agent.tools.mcp.tool import shutdown_mcp_servers
         shutdown_mcp_servers()
     except Exception:
         pass

@@ -3,7 +3,7 @@
 from types import SimpleNamespace
 from unittest.mock import patch, call
 
-import hermes_cli.gateway as gateway
+import hermes_agent.cli.gateway as gateway
 
 
 class TestSystemdLingerStatus:
@@ -252,7 +252,7 @@ def test_install_linux_gateway_from_setup_system_choice_as_root_installs(monkeyp
 def test_find_gateway_pids_falls_back_to_pid_file_when_process_scan_fails(monkeypatch):
     monkeypatch.setattr(gateway, "_get_service_pids", lambda: set())
     monkeypatch.setattr(gateway, "is_windows", lambda: False)
-    monkeypatch.setattr("gateway.status.get_running_pid", lambda: 321)
+    monkeypatch.setattr("hermes_agent.gateway.status.get_running_pid", lambda: 321)
 
     def fake_run(cmd, **kwargs):
         if cmd[:4] == ["ps", "-A", "eww", "-o"]:
@@ -274,7 +274,7 @@ class TestWaitForGatewayExit:
 
     def test_returns_immediately_when_no_pid(self, monkeypatch):
         """If get_running_pid returns None, exit instantly."""
-        monkeypatch.setattr("gateway.status.get_running_pid", lambda: None)
+        monkeypatch.setattr("hermes_agent.gateway.status.get_running_pid", lambda: None)
         # Should return without sleeping at all.
         gateway._wait_for_gateway_exit(timeout=1.0, force_after=0.5)
 
@@ -287,7 +287,7 @@ class TestWaitForGatewayExit:
             poll_count += 1
             return 12345 if poll_count <= 2 else None
 
-        monkeypatch.setattr("gateway.status.get_running_pid", mock_get_running_pid)
+        monkeypatch.setattr("hermes_agent.gateway.status.get_running_pid", mock_get_running_pid)
         monkeypatch.setattr("time.sleep", lambda _: None)
 
         gateway._wait_for_gateway_exit(timeout=10.0, force_after=999.0)
@@ -316,7 +316,7 @@ class TestWaitForGatewayExit:
 
         monkeypatch.setattr("time.monotonic", fake_monotonic)
         monkeypatch.setattr("time.sleep", lambda _: None)
-        monkeypatch.setattr("gateway.status.get_running_pid", mock_get_running_pid)
+        monkeypatch.setattr("hermes_agent.gateway.status.get_running_pid", mock_get_running_pid)
         monkeypatch.setattr(gateway, "terminate_pid", mock_terminate)
 
         gateway._wait_for_gateway_exit(timeout=10.0, force_after=5.0)
@@ -336,7 +336,7 @@ class TestWaitForGatewayExit:
 
         monkeypatch.setattr("time.monotonic", fake_monotonic)
         monkeypatch.setattr("time.sleep", lambda _: None)
-        monkeypatch.setattr("gateway.status.get_running_pid", lambda: 99)
+        monkeypatch.setattr("hermes_agent.gateway.status.get_running_pid", lambda: 99)
         monkeypatch.setattr(gateway, "terminate_pid", mock_terminate)
 
         # Should not raise — ProcessLookupError means it's already gone.

@@ -14,7 +14,7 @@ Features:
 - Support for multiple model providers
 
 Usage:
-    from run_agent import AIAgent
+    from hermes_agent.agent.loop import AIAgent
     
     agent = AIAgent(base_url="http://localhost:30000/v1", model="claude-opus-4-20250514")
     response = agent.run_conversation("Tell me about the latest Python updates")
@@ -40,18 +40,18 @@ import uuid
 from typing import Callable, List, Dict, Any, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from agent.rate_limit_tracker import RateLimitState
+    from hermes_agent.providers.rate_limiting import RateLimitState
 from openai import OpenAI
 import fire
 from datetime import datetime
 from pathlib import Path
 
-from hermes_constants import get_hermes_home
+from hermes_agent.constants import get_hermes_home
 
 # Load .env from ~/.hermes/.env first, then project root as dev fallback.
 # User-managed env files should override stale shell exports on restart.
-from hermes_cli.env_loader import load_hermes_dotenv
-from hermes_cli.timeouts import (
+from hermes_agent.cli.env_loader import load_hermes_dotenv
+from hermes_agent.cli.timeouts import (
     get_provider_request_timeout,
     get_provider_stale_timeout,
 )
@@ -67,30 +67,30 @@ else:
 
 
 # Import our tool system
-from model_tools import (
+from hermes_agent.tools.dispatch import (
     get_tool_definitions,
     get_toolset_for_tool,
     handle_function_call,
     check_toolset_requirements,
 )
-from tools.terminal_tool import cleanup_vm, get_active_env, is_persistent_env
-from tools.tool_result_storage import maybe_persist_tool_result, enforce_turn_budget
-from tools.interrupt import set_interrupt as _set_interrupt
-from tools.browser_tool import cleanup_browser
+from hermes_agent.tools.terminal import cleanup_vm, get_active_env, is_persistent_env
+from hermes_agent.tools.result_storage import maybe_persist_tool_result, enforce_turn_budget
+from hermes_agent.tools.interrupt import set_interrupt as _set_interrupt
+from hermes_agent.tools.browser.tool import cleanup_browser
 
 
-from hermes_constants import OPENROUTER_BASE_URL
+from hermes_agent.constants import OPENROUTER_BASE_URL
 
 # Agent internals extracted to agent/ package for modularity
-from agent.memory_manager import build_memory_context_block, sanitize_context
-from agent.retry_utils import jittered_backoff
-from agent.error_classifier import classify_api_error, FailoverReason
-from agent.prompt_builder import (
+from hermes_agent.agent.memory.manager import build_memory_context_block, sanitize_context
+from hermes_agent.providers.retry import jittered_backoff
+from hermes_agent.providers.errors import classify_api_error, FailoverReason
+from hermes_agent.agent.prompt_builder import (
     DEFAULT_AGENT_IDENTITY, PLATFORM_HINTS,
     MEMORY_GUIDANCE, SESSION_SEARCH_GUIDANCE, SKILLS_GUIDANCE,
     build_nous_subscription_prompt,
 )
-from agent.model_metadata import (
+from hermes_agent.providers.metadata import (
     fetch_model_metadata,
     estimate_tokens_rough, estimate_messages_tokens_rough, estimate_request_tokens_rough,
     get_next_probe_tier, parse_context_limit_from_error,
@@ -98,12 +98,12 @@ from agent.model_metadata import (
     save_context_length, is_local_endpoint,
     query_ollama_num_ctx,
 )
-from agent.context_compressor import ContextCompressor
-from agent.subdirectory_hints import SubdirectoryHintTracker
-from agent.prompt_caching import apply_anthropic_cache_control
-from agent.prompt_builder import build_skills_system_prompt, build_context_files_prompt, build_environment_hints, load_soul_md, TOOL_USE_ENFORCEMENT_GUIDANCE, TOOL_USE_ENFORCEMENT_MODELS, DEVELOPER_ROLE_MODELS, GOOGLE_MODEL_OPERATIONAL_GUIDANCE, OPENAI_MODEL_EXECUTION_GUIDANCE
-from agent.usage_pricing import estimate_usage_cost, normalize_usage
-from agent.codex_responses_adapter import (
+from hermes_agent.agent.context.compressor import ContextCompressor
+from hermes_agent.agent.subdirectory_hints import SubdirectoryHintTracker
+from hermes_agent.providers.caching import apply_anthropic_cache_control
+from hermes_agent.agent.prompt_builder import build_skills_system_prompt, build_context_files_prompt, build_environment_hints, load_soul_md, TOOL_USE_ENFORCEMENT_GUIDANCE, TOOL_USE_ENFORCEMENT_MODELS, DEVELOPER_ROLE_MODELS, GOOGLE_MODEL_OPERATIONAL_GUIDANCE, OPENAI_MODEL_EXECUTION_GUIDANCE
+from hermes_agent.providers.pricing import estimate_usage_cost, normalize_usage
+from hermes_agent.providers.codex_adapter import (
     _chat_content_to_responses_parts,
     _chat_messages_to_responses_input as _codex_chat_messages_to_responses_input,
     _derive_responses_function_call_id as _codex_derive_responses_function_call_id,
@@ -117,17 +117,17 @@ from agent.codex_responses_adapter import (
     _split_responses_tool_id as _codex_split_responses_tool_id,
     _summarize_user_message_for_log,
 )
-from agent.display import (
+from hermes_agent.agent.display import (
     KawaiiSpinner, build_tool_preview as _build_tool_preview,
     get_cute_tool_message as _get_cute_tool_message_impl,
     _detect_tool_failure,
     get_tool_emoji as _get_tool_emoji,
 )
-from agent.trajectory import (
+from hermes_agent.agent.trajectory import (
     convert_scratchpad_to_think, has_incomplete_scratchpad,
     save_trajectory as _save_trajectory_to_file,
 )
-from utils import atomic_json_write, base_url_host_matches, base_url_hostname, env_var_enabled, normalize_proxy_url
+from hermes_agent.utils import atomic_json_write, base_url_host_matches, base_url_hostname, env_var_enabled, normalize_proxy_url
 
 
 
@@ -876,7 +876,7 @@ class AIAgent:
             self.api_mode = "chat_completions"
 
         try:
-            from hermes_cli.model_normalize import (
+            from hermes_agent.cli.models.normalize import (
                 _AGGREGATOR_PROVIDERS,
                 normalize_model_for_provider,
             )
@@ -1026,7 +1026,7 @@ class AIAgent:
         # Centralized logging — agent.log (INFO+) and errors.log (WARNING+)
         # both live under ~/.hermes/logs/.  Idempotent, so gateway mode
         # (which creates a new AIAgent per message) won't duplicate handlers.
-        from hermes_logging import setup_logging, setup_verbose_logging
+        from hermes_agent.logging import setup_logging, setup_verbose_logging
         setup_logging(hermes_home=_hermes_home)
 
         if self.verbose_logging:
@@ -1040,10 +1040,10 @@ class AIAgent:
                 # File handlers (agent.log, errors.log) still capture everything.
                 for quiet_logger in [
                     'tools',               # all tools.* (terminal, browser, web, file, etc.)
-                    'run_agent',            # agent runner internals
+                    'hermes_agent.agent.loop',            # agent runner internals
                     'scripts.trajectory_compressor',
                     'cron',                 # scheduler (only relevant in daemon mode)
-                    'hermes_cli',           # CLI helpers
+                    'hermes_agent.cli',           # CLI helpers
                 ]:
                     logging.getLogger(quiet_logger).setLevel(logging.ERROR)
         
@@ -1085,12 +1085,12 @@ class AIAgent:
         _provider_timeout = get_provider_request_timeout(self.provider, self.model)
 
         if self.api_mode == "anthropic_messages":
-            from agent.anthropic_adapter import build_anthropic_client, resolve_anthropic_token
+            from hermes_agent.providers.anthropic_adapter import build_anthropic_client, resolve_anthropic_token
             # Bedrock + Claude → use AnthropicBedrock SDK for full feature parity
             # (prompt caching, thinking budgets, adaptive thinking).
             _is_bedrock_anthropic = self.provider == "bedrock"
             if _is_bedrock_anthropic:
-                from agent.anthropic_adapter import build_anthropic_bedrock_client
+                from hermes_agent.providers.anthropic_adapter import build_anthropic_bedrock_client
                 _region_match = re.search(r"bedrock-runtime\.([a-z0-9-]+)\.", base_url or "")
                 _br_region = _region_match.group(1) if _region_match else "us-east-1"
                 self._bedrock_region = _br_region
@@ -1119,7 +1119,7 @@ class AIAgent:
                 # so injects Claude-Code identity headers and system prompts
                 # that cause 401/403 on their endpoints.  Guards #1739 and
                 # the third-party identity-injection bug.
-                from agent.anthropic_adapter import _is_oauth_token as _is_oat
+                from hermes_agent.providers.anthropic_adapter import _is_oauth_token as _is_oat
                 self._is_anthropic_oauth = _is_oat(effective_key) if _is_native_anthropic else False
                 self._anthropic_client = build_anthropic_client(effective_key, base_url, timeout=_provider_timeout)
                 # No OpenAI client needed for Anthropic mode
@@ -1137,7 +1137,7 @@ class AIAgent:
             # Guardrail config — read from config.yaml at init time.
             self._bedrock_guardrail_config = None
             try:
-                from hermes_cli.config import load_config as _load_br_cfg
+                from hermes_agent.cli.config import load_config as _load_br_cfg
                 _gr = _load_br_cfg().get("bedrock", {}).get("guardrail", {})
                 if _gr.get("guardrail_identifier") and _gr.get("guardrail_version"):
                     self._bedrock_guardrail_config = {
@@ -1173,7 +1173,7 @@ class AIAgent:
                         "X-OpenRouter-Categories": "productivity,cli-agent",
                     }
                 elif base_url_host_matches(effective_base, "api.githubcopilot.com"):
-                    from hermes_cli.models import copilot_default_headers
+                    from hermes_agent.cli.models.models import copilot_default_headers
 
                     client_kwargs["default_headers"] = copilot_default_headers()
                 elif base_url_host_matches(effective_base, "api.kimi.com"):
@@ -1183,11 +1183,11 @@ class AIAgent:
                 elif base_url_host_matches(effective_base, "portal.qwen.ai"):
                     client_kwargs["default_headers"] = _qwen_portal_headers()
                 elif base_url_host_matches(effective_base, "chatgpt.com"):
-                    from agent.auxiliary_client import _codex_cloudflare_headers
+                    from hermes_agent.providers.auxiliary import _codex_cloudflare_headers
                     client_kwargs["default_headers"] = _codex_cloudflare_headers(api_key)
             else:
                 # No explicit creds — use the centralized provider router
-                from agent.auxiliary_client import resolve_provider_client
+                from hermes_agent.providers.auxiliary import resolve_provider_client
                 _routed_client, _ = resolve_provider_client(
                     self.provider or "auto", model=self.model, raw_codex=True)
                 if _routed_client is not None:
@@ -1211,7 +1211,7 @@ class AIAgent:
                         # (e.g. alibaba → DASHSCOPE_API_KEY, not ALIBABA_API_KEY).
                         _env_hint = f"{_explicit.upper()}_API_KEY"
                         try:
-                            from hermes_cli.auth import PROVIDER_REGISTRY
+                            from hermes_agent.cli.auth.auth import PROVIDER_REGISTRY
                             _pcfg = PROVIDER_REGISTRY.get(_explicit)
                             if _pcfg and _pcfg.api_key_env_vars:
                                 _env_hint = _pcfg.api_key_env_vars[0]
@@ -1364,7 +1364,7 @@ class AIAgent:
         self._cached_system_prompt: Optional[str] = None
         
         # Filesystem checkpoint manager (transparent — not a tool)
-        from tools.checkpoint_manager import CheckpointManager
+        from hermes_agent.tools.checkpoint import CheckpointManager
         self._checkpoint_mgr = CheckpointManager(
             enabled=checkpoints_enabled,
             max_snapshots=checkpoint_max_snapshots,
@@ -1400,12 +1400,12 @@ class AIAgent:
                 )
         
         # In-memory todo list for task planning (one per agent/session)
-        from tools.todo_tool import TodoStore
+        from hermes_agent.tools.todo import TodoStore
         self._todo_store = TodoStore()
         
         # Load config once for memory, skills, and compression sections
         try:
-            from hermes_cli.config import load_config as _load_agent_config
+            from hermes_agent.cli.config import load_config as _load_agent_config
             _agent_cfg = _load_agent_config()
         except Exception:
             _agent_cfg = {}
@@ -1430,7 +1430,7 @@ class AIAgent:
                 self._memory_nudge_interval = int(mem_config.get("nudge_interval", 10))
                 self._memory_flush_min_turns = int(mem_config.get("flush_min_turns", 6))
                 if self._memory_enabled or self._user_profile_enabled:
-                    from tools.memory_tool import MemoryStore
+                    from hermes_agent.tools.memory import MemoryStore
                     self._memory_store = MemoryStore(
                         memory_char_limit=mem_config.get("memory_char_limit", 2200),
                         user_char_limit=mem_config.get("user_char_limit", 1375),
@@ -1449,8 +1449,8 @@ class AIAgent:
                 _mem_provider_name = mem_config.get("provider", "") if mem_config else ""
 
                 if _mem_provider_name:
-                    from agent.memory_manager import MemoryManager as _MemoryManager
-                    from plugins.memory import load_memory_provider as _load_mem
+                    from hermes_agent.agent.memory.manager import MemoryManager as _MemoryManager
+                    from hermes_agent.plugins.memory import load_memory_provider as _load_mem
                     self._memory_manager = _MemoryManager()
                     _mp = _load_mem(_mem_provider_name)
                     if _mp and _mp.is_available():
@@ -1479,7 +1479,7 @@ class AIAgent:
                             _init_kwargs["gateway_session_key"] = self._gateway_session_key
                         # Profile identity for per-profile provider scoping
                         try:
-                            from hermes_cli.profiles import get_active_profile_name
+                            from hermes_agent.cli.profiles import get_active_profile_name
                             _profile = get_active_profile_name()
                             _init_kwargs["agent_identity"] = _profile
                             _init_kwargs["agent_workspace"] = "hermes"
@@ -1590,7 +1590,7 @@ class AIAgent:
         # Check custom_providers per-model context_length
         if _config_context_length is None:
             try:
-                from hermes_cli.config import get_compatible_custom_providers
+                from hermes_agent.cli.config import get_compatible_custom_providers
                 _custom_providers = get_compatible_custom_providers(_agent_cfg)
             except Exception:
                 _custom_providers = _agent_cfg.get("custom_providers")
@@ -1641,7 +1641,7 @@ class AIAgent:
         if _engine_name != "compressor":
             # Try loading from plugins/context_engine/<name>/
             try:
-                from plugins.context_engine import load_context_engine
+                from hermes_agent.plugins.context_engine import load_context_engine
                 _selected_engine = load_context_engine(_engine_name)
             except Exception as _ce_load_err:
                 logger.debug("Context engine load from plugins/context_engine/: %s", _ce_load_err)
@@ -1649,7 +1649,7 @@ class AIAgent:
             # Try general plugin system as fallback
             if _selected_engine is None:
                 try:
-                    from hermes_cli.plugins import get_plugin_context_engine
+                    from hermes_agent.cli.plugins import get_plugin_context_engine
                     _candidate = get_plugin_context_engine()
                     if _candidate and _candidate.name == _engine_name:
                         _selected_engine = _candidate
@@ -1666,7 +1666,7 @@ class AIAgent:
         if _selected_engine is not None:
             self.context_compressor = _selected_engine
             # Resolve context_length for plugin engines — mirrors switch_model() path
-            from agent.model_metadata import get_model_context_length
+            from hermes_agent.providers.metadata import get_model_context_length
             _plugin_ctx_len = get_model_context_length(
                 self.model,
                 base_url=self.base_url,
@@ -1702,7 +1702,7 @@ class AIAgent:
 
         # Reject models whose context window is below the minimum required
         # for reliable tool-calling workflows (64K tokens).
-        from agent.model_metadata import MINIMUM_CONTEXT_LENGTH
+        from hermes_agent.providers.metadata import MINIMUM_CONTEXT_LENGTH
         _ctx = getattr(self.context_compressor, "context_length", 0)
         if _ctx and _ctx < MINIMUM_CONTEXT_LENGTH:
             raise ValueError(
@@ -1879,7 +1879,7 @@ class AIAgent:
         change persists across turns (unlike fallback which is
         turn-scoped).
         """
-        from hermes_cli.providers import determine_api_mode
+        from hermes_agent.cli.providers import determine_api_mode
 
         # ── Determine api_mode if not provided ──
         if not api_mode:
@@ -1911,7 +1911,7 @@ class AIAgent:
 
         # ── Build new client ──
         if api_mode == "anthropic_messages":
-            from agent.anthropic_adapter import (
+            from hermes_agent.providers.anthropic_adapter import (
                 build_anthropic_client,
                 resolve_anthropic_token,
                 _is_oauth_token,
@@ -1959,7 +1959,7 @@ class AIAgent:
 
         # ── Update context compressor ──
         if hasattr(self, "context_compressor") and self.context_compressor:
-            from agent.model_metadata import get_model_context_length
+            from hermes_agent.providers.metadata import get_model_context_length
             new_context_length = get_model_context_length(
                 self.model,
                 base_url=self.base_url,
@@ -2154,8 +2154,8 @@ class AIAgent:
         if not self.compression_enabled:
             return
         try:
-            from agent.auxiliary_client import get_text_auxiliary_client
-            from agent.model_metadata import (
+            from hermes_agent.providers.auxiliary import get_text_auxiliary_client
+            from hermes_agent.providers.metadata import (
                 MINIMUM_CONTEXT_LENGTH,
                 get_model_context_length,
             )
@@ -2448,7 +2448,7 @@ class AIAgent:
         normalized_provider = (provider or "").strip().lower()
         if normalized_provider == "copilot":
             try:
-                from hermes_cli.models import _should_use_copilot_responses_api
+                from hermes_agent.cli.models.models import _should_use_copilot_responses_api
                 return _should_use_copilot_responses_api(model)
             except Exception:
                 # Fall back to the generic GPT-5 rule if Copilot-specific
@@ -3756,7 +3756,7 @@ class AIAgent:
         if not headers:
             return
         try:
-            from agent.rate_limit_tracker import parse_rate_limit_headers
+            from hermes_agent.providers.rate_limiting import parse_rate_limit_headers
             state = parse_rate_limit_headers(headers, provider=self.provider)
             if state is not None:
                 self._rate_limit_state = state
@@ -3888,7 +3888,7 @@ class AIAgent:
 
         # 1. Kill background processes for this task
         try:
-            from tools.process_registry import process_registry
+            from hermes_agent.tools.process_registry import process_registry
             process_registry.kill_all(task_id=task_id)
         except Exception:
             pass
@@ -4105,7 +4105,7 @@ class AIAgent:
             if context_files_prompt:
                 prompt_parts.append(context_files_prompt)
 
-        from hermes_time import now as _hermes_now
+        from hermes_agent.time import now as _hermes_now
         now = _hermes_now()
         timestamp_line = f"Conversation started: {now.strftime('%A, %B %d, %Y %I:%M %p')}"
         if self.pass_session_id and self.session_id:
@@ -4233,7 +4233,7 @@ class AIAgent:
 
         Returns the original list if no truncation was needed.
         """
-        from tools.delegate_tool import _get_max_concurrent_children
+        from hermes_agent.tools.delegate import _get_max_concurrent_children
         max_children = _get_max_concurrent_children()
         delegate_count = sum(1 for tc in tool_calls if tc.function.name == "delegate_task")
         if delegate_count <= max_children:
@@ -4409,7 +4409,7 @@ class AIAgent:
             return None
 
     def _create_openai_client(self, client_kwargs: dict, *, reason: str, shared: bool) -> Any:
-        from agent.auxiliary_client import _validate_base_url, _validate_proxy_env_urls
+        from hermes_agent.providers.auxiliary import _validate_base_url, _validate_proxy_env_urls
         # Treat client_kwargs as read-only. Callers pass self._client_kwargs (or shallow
         # copies of it) in; any in-place mutation leaks back into the stored dict and is
         # reused on subsequent requests. #10933 hit this by injecting an httpx.Client
@@ -4422,7 +4422,7 @@ class AIAgent:
         _validate_proxy_env_urls()
         _validate_base_url(client_kwargs.get("base_url"))
         if self.provider == "copilot-acp" or str(client_kwargs.get("base_url", "")).startswith("acp://copilot"):
-            from agent.copilot_acp_client import CopilotACPClient
+            from hermes_agent.agent.copilot_acp_client import CopilotACPClient
 
             client = CopilotACPClient(**client_kwargs)
             logger.info(
@@ -4433,7 +4433,7 @@ class AIAgent:
             )
             return client
         if self.provider == "google-gemini-cli" or str(client_kwargs.get("base_url", "")).startswith("cloudcode-pa://"):
-            from agent.gemini_cloudcode_adapter import GeminiCloudCodeClient
+            from hermes_agent.providers.gemini_cloudcode_adapter import GeminiCloudCodeClient
 
             # Strip OpenAI-specific kwargs the Gemini client doesn't accept
             safe_kwargs = {
@@ -4449,7 +4449,7 @@ class AIAgent:
             )
             return client
         if self.provider == "gemini":
-            from agent.gemini_native_adapter import GeminiNativeClient, is_native_gemini_base_url
+            from hermes_agent.providers.gemini_adapter import GeminiNativeClient, is_native_gemini_base_url
 
             base_url = str(client_kwargs.get("base_url", "") or "")
             if is_native_gemini_base_url(base_url):
@@ -4904,7 +4904,7 @@ class AIAgent:
             return False
 
         try:
-            from hermes_cli.auth import resolve_codex_runtime_credentials
+            from hermes_agent.cli.auth.auth import resolve_codex_runtime_credentials
 
             creds = resolve_codex_runtime_credentials(force_refresh=force)
         except Exception as exc:
@@ -4933,7 +4933,7 @@ class AIAgent:
             return False
 
         try:
-            from hermes_cli.auth import resolve_nous_runtime_credentials
+            from hermes_agent.cli.auth.auth import resolve_nous_runtime_credentials
 
             creds = resolve_nous_runtime_credentials(
                 min_key_ttl_seconds=max(60, int(os.getenv("HERMES_NOUS_MIN_KEY_TTL_SECONDS", "1800"))),
@@ -4972,7 +4972,7 @@ class AIAgent:
             return False
 
         try:
-            from agent.anthropic_adapter import resolve_anthropic_token, build_anthropic_client
+            from hermes_agent.providers.anthropic_adapter import resolve_anthropic_token, build_anthropic_client
 
             new_token = resolve_anthropic_token()
         except Exception as exc:
@@ -5005,19 +5005,19 @@ class AIAgent:
         # Only treat as OAuth on native Anthropic; third-party endpoints using
         # the Anthropic protocol must not trip OAuth paths (#1739 & third-party
         # identity-injection guard).
-        from agent.anthropic_adapter import _is_oauth_token
+        from hermes_agent.providers.anthropic_adapter import _is_oauth_token
         self._is_anthropic_oauth = _is_oauth_token(new_token) if self.provider == "anthropic" else False
         return True
 
     def _apply_client_headers_for_base_url(self, base_url: str) -> None:
-        from agent.auxiliary_client import _AI_GATEWAY_HEADERS, _OR_HEADERS
+        from hermes_agent.providers.auxiliary import _AI_GATEWAY_HEADERS, _OR_HEADERS
 
         if base_url_host_matches(base_url, "openrouter.ai"):
             self._client_kwargs["default_headers"] = dict(_OR_HEADERS)
         elif base_url_host_matches(base_url, "ai-gateway.vercel.sh"):
             self._client_kwargs["default_headers"] = dict(_AI_GATEWAY_HEADERS)
         elif base_url_host_matches(base_url, "api.githubcopilot.com"):
-            from hermes_cli.models import copilot_default_headers
+            from hermes_agent.cli.models.models import copilot_default_headers
 
             self._client_kwargs["default_headers"] = copilot_default_headers()
         elif base_url_host_matches(base_url, "api.kimi.com"):
@@ -5025,7 +5025,7 @@ class AIAgent:
         elif base_url_host_matches(base_url, "portal.qwen.ai"):
             self._client_kwargs["default_headers"] = _qwen_portal_headers()
         elif base_url_host_matches(base_url, "chatgpt.com"):
-            from agent.auxiliary_client import _codex_cloudflare_headers
+            from hermes_agent.providers.auxiliary import _codex_cloudflare_headers
             self._client_kwargs["default_headers"] = _codex_cloudflare_headers(
                 self._client_kwargs.get("api_key", "")
             )
@@ -5037,7 +5037,7 @@ class AIAgent:
         runtime_base = getattr(entry, "runtime_base_url", None) or getattr(entry, "base_url", None) or self.base_url
 
         if self.api_mode == "anthropic_messages":
-            from agent.anthropic_adapter import build_anthropic_client, _is_oauth_token
+            from hermes_agent.providers.anthropic_adapter import build_anthropic_client, _is_oauth_token
 
             try:
                 self._anthropic_client.close()
@@ -5181,7 +5181,7 @@ class AIAgent:
                     result["response"] = self._anthropic_messages_create(api_kwargs)
                 elif self.api_mode == "bedrock_converse":
                     # Bedrock uses boto3 directly — no OpenAI client needed.
-                    from agent.bedrock_adapter import (
+                    from hermes_agent.providers.bedrock_adapter import (
                         _get_bedrock_runtime_client,
                         normalize_converse_response,
                     )
@@ -5246,7 +5246,7 @@ class AIAgent:
                 )
                 try:
                     if self.api_mode == "anthropic_messages":
-                        from agent.anthropic_adapter import build_anthropic_client
+                        from hermes_agent.providers.anthropic_adapter import build_anthropic_client
 
                         self._anthropic_client.close()
                         self._anthropic_client = build_anthropic_client(
@@ -5278,7 +5278,7 @@ class AIAgent:
                 # seed future retries.
                 try:
                     if self.api_mode == "anthropic_messages":
-                        from agent.anthropic_adapter import build_anthropic_client
+                        from hermes_agent.providers.anthropic_adapter import build_anthropic_client
 
                         self._anthropic_client.close()
                         self._anthropic_client = build_anthropic_client(
@@ -5439,7 +5439,7 @@ class AIAgent:
 
             def _bedrock_call():
                 try:
-                    from agent.bedrock_adapter import (
+                    from hermes_agent.providers.bedrock_adapter import (
                         _get_bedrock_runtime_client,
                         stream_converse_with_callbacks,
                     )
@@ -6019,7 +6019,7 @@ class AIAgent:
             if self._interrupt_requested:
                 try:
                     if self.api_mode == "anthropic_messages":
-                        from agent.anthropic_adapter import build_anthropic_client
+                        from hermes_agent.providers.anthropic_adapter import build_anthropic_client
 
                         self._anthropic_client.close()
                         self._anthropic_client = build_anthropic_client(
@@ -6129,7 +6129,7 @@ class AIAgent:
         # raw_codex=True because the main agent needs direct responses.stream()
         # access for Codex providers.
         try:
-            from agent.auxiliary_client import resolve_provider_client
+            from hermes_agent.providers.auxiliary import resolve_provider_client
             # Pass base_url and api_key from fallback config so custom
             # endpoints (e.g. Ollama Cloud) resolve correctly instead of
             # falling through to OpenRouter defaults.
@@ -6150,7 +6150,7 @@ class AIAgent:
                     fb_provider)
                 return self._try_activate_fallback()  # try next in chain
             try:
-                from hermes_cli.model_normalize import normalize_model_for_provider
+                from hermes_agent.cli.models.normalize import normalize_model_for_provider
 
                 fb_model = normalize_model_for_provider(fb_model, fb_provider)
             except Exception:
@@ -6193,7 +6193,7 @@ class AIAgent:
 
             if fb_api_mode == "anthropic_messages":
                 # Build native Anthropic client instead of using OpenAI client
-                from agent.anthropic_adapter import build_anthropic_client, resolve_anthropic_token, _is_oauth_token
+                from hermes_agent.providers.anthropic_adapter import build_anthropic_client, resolve_anthropic_token, _is_oauth_token
                 effective_key = (fb_client.api_key or resolve_anthropic_token() or "") if fb_provider == "anthropic" else (fb_client.api_key or "")
                 self.api_key = effective_key
                 self._anthropic_api_key = effective_key
@@ -6246,7 +6246,7 @@ class AIAgent:
             # context window (e.g. 200K) instead of the fallback's (e.g. 32K),
             # causing oversized sessions to overflow the fallback.
             if hasattr(self, 'context_compressor') and self.context_compressor:
-                from agent.model_metadata import get_model_context_length
+                from hermes_agent.providers.metadata import get_model_context_length
                 fb_context_length = get_model_context_length(
                     self.model, base_url=self.base_url,
                     api_key=self.api_key, provider=self.provider,
@@ -6307,7 +6307,7 @@ class AIAgent:
 
             # ── Rebuild client for the primary provider ──
             if self.api_mode == "anthropic_messages":
-                from agent.anthropic_adapter import build_anthropic_client
+                from hermes_agent.providers.anthropic_adapter import build_anthropic_client
                 self._anthropic_api_key = rt["anthropic_api_key"]
                 self._anthropic_base_url = rt["anthropic_base_url"]
                 self._anthropic_client = build_anthropic_client(
@@ -6404,7 +6404,7 @@ class AIAgent:
             self.api_key = rt["api_key"]
 
             if self.api_mode == "anthropic_messages":
-                from agent.anthropic_adapter import build_anthropic_client
+                from hermes_agent.providers.anthropic_adapter import build_anthropic_client
                 self._anthropic_api_key = rt["anthropic_api_key"]
                 self._anthropic_base_url = rt["anthropic_base_url"]
                 self._anthropic_client = build_anthropic_client(
@@ -6487,7 +6487,7 @@ class AIAgent:
 
         description = ""
         try:
-            from tools.vision_tools import vision_analyze_tool
+            from hermes_agent.tools.vision import vision_analyze_tool
 
             result_json = asyncio.run(
                 vision_analyze_tool(image_url=vision_source, user_prompt=analysis_prompt)
@@ -6563,7 +6563,7 @@ class AIAgent:
         """Return the cached AnthropicTransport instance (lazy singleton)."""
         t = getattr(self, "_anthropic_transport", None)
         if t is None:
-            from agent.transports import get_transport
+            from hermes_agent.providers import get_transport
             t = get_transport("anthropic_messages")
             self._anthropic_transport = t
         return t
@@ -6572,7 +6572,7 @@ class AIAgent:
         """Return the cached ResponsesApiTransport instance (lazy singleton)."""
         t = getattr(self, "_codex_transport", None)
         if t is None:
-            from agent.transports import get_transport
+            from hermes_agent.providers import get_transport
             t = get_transport("codex_responses")
             self._codex_transport = t
         return t
@@ -6581,7 +6581,7 @@ class AIAgent:
         """Return the cached ChatCompletionsTransport instance (lazy singleton)."""
         t = getattr(self, "_chat_completions_transport", None)
         if t is None:
-            from agent.transports import get_transport
+            from hermes_agent.providers import get_transport
             t = get_transport("chat_completions")
             self._chat_completions_transport = t
         return t
@@ -6590,7 +6590,7 @@ class AIAgent:
         """Return the cached BedrockTransport instance (lazy singleton)."""
         t = getattr(self, "_bedrock_transport", None)
         if t is None:
-            from agent.transports import get_transport
+            from hermes_agent.providers import get_transport
             t = get_transport("bedrock_converse")
             self._bedrock_transport = t
         return t
@@ -6795,7 +6795,7 @@ class AIAgent:
         # Temperature: _fixed_temperature_for_model may return OMIT_TEMPERATURE
         # sentinel (temperature omitted entirely), a numeric override, or None.
         try:
-            from agent.auxiliary_client import _fixed_temperature_for_model, OMIT_TEMPERATURE
+            from hermes_agent.providers.auxiliary import _fixed_temperature_for_model, OMIT_TEMPERATURE
             _ft = _fixed_temperature_for_model(self.model, self.base_url)
             _omit_temp = _ft is OMIT_TEMPERATURE
             _fixed_temp = _ft if not _omit_temp else None
@@ -6822,7 +6822,7 @@ class AIAgent:
         _ant_max = None
         if (_is_or or _is_nous) and "claude" in (self.model or "").lower():
             try:
-                from agent.anthropic_adapter import _get_anthropic_max_output
+                from hermes_agent.providers.anthropic_adapter import _get_anthropic_max_output
                 _ant_max = _get_anthropic_max_output(self.model)
             except Exception:
                 pass  # fail open — let the proxy pick its default
@@ -6888,7 +6888,7 @@ class AIAgent:
             or base_url_host_matches(self._base_url_lower, "api.githubcopilot.com")
         ):
             try:
-                from hermes_cli.models import github_model_reasoning_efforts
+                from hermes_agent.cli.models.models import github_model_reasoning_efforts
 
                 return bool(github_model_reasoning_efforts(self.model))
             except Exception:
@@ -6912,7 +6912,7 @@ class AIAgent:
     def _github_models_reasoning_extra_body(self) -> dict | None:
         """Format reasoning payload for GitHub Models/OpenAI-compatible routes."""
         try:
-            from hermes_cli.models import github_model_reasoning_efforts
+            from hermes_agent.cli.models.models import github_model_reasoning_efforts
         except Exception:
             return None
 
@@ -7191,7 +7191,7 @@ class AIAgent:
 
             # Use auxiliary client for the flush call when available --
             # it's cheaper and avoids Codex Responses API incompatibility.
-            from agent.auxiliary_client import (
+            from hermes_agent.providers.auxiliary import (
                 call_llm as _call_llm,
                 _fixed_temperature_for_model,
                 OMIT_TEMPERATURE,
@@ -7254,7 +7254,7 @@ class AIAgent:
                 }
                 if _flush_temperature is not None:
                     api_kwargs["temperature"] = _flush_temperature
-                from agent.auxiliary_client import _get_task_timeout
+                from hermes_agent.providers.auxiliary import _get_task_timeout
                 response = self._ensure_primary_openai_client(reason="flush_memories").chat.completions.create(
                     **api_kwargs, timeout=_get_task_timeout("flush_memories")
                 )
@@ -7291,7 +7291,7 @@ class AIAgent:
                     try:
                         args = json.loads(tc.function.arguments)
                         flush_target = args.get("target", "memory")
-                        from tools.memory_tool import memory_tool as _memory_tool
+                        from hermes_agent.tools.memory import memory_tool as _memory_tool
                         _memory_tool(
                             action=args.get("action"),
                             target=flush_target,
@@ -7405,7 +7405,7 @@ class AIAgent:
         # read content is summarised away — if the model re-reads the same
         # file it needs the full content, not a "file unchanged" stub.
         try:
-            from tools.file_tools import reset_file_dedup
+            from hermes_agent.tools.files.tools import reset_file_dedup
             reset_file_dedup(task_id)
         except Exception:
             pass
@@ -7446,7 +7446,7 @@ class AIAgent:
         New DELEGATE_TASK_SCHEMA fields only need to be added here to reach all
         invocation paths (concurrent, sequential, inline).
         """
-        from tools.delegate_tool import delegate_task as _delegate_task
+        from hermes_agent.tools.delegate import delegate_task as _delegate_task
         return _delegate_task(
             goal=function_args.get("goal"),
             context=function_args.get("context"),
@@ -7470,7 +7470,7 @@ class AIAgent:
         # Check plugin hooks for a block directive before executing anything.
         block_message: Optional[str] = None
         try:
-            from hermes_cli.plugins import get_pre_tool_call_block_message
+            from hermes_agent.cli.plugins import get_pre_tool_call_block_message
             block_message = get_pre_tool_call_block_message(
                 function_name, function_args, task_id=effective_task_id or "",
             )
@@ -7480,7 +7480,7 @@ class AIAgent:
             return json.dumps({"error": block_message}, ensure_ascii=False)
 
         if function_name == "todo":
-            from tools.todo_tool import todo_tool as _todo_tool
+            from hermes_agent.tools.todo import todo_tool as _todo_tool
             return _todo_tool(
                 todos=function_args.get("todos"),
                 merge=function_args.get("merge", False),
@@ -7489,7 +7489,7 @@ class AIAgent:
         elif function_name == "session_search":
             if not self._session_db:
                 return json.dumps({"success": False, "error": "Session database not available."})
-            from tools.session_search_tool import session_search as _session_search
+            from hermes_agent.tools.session_search import session_search as _session_search
             return _session_search(
                 query=function_args.get("query", ""),
                 role_filter=function_args.get("role_filter"),
@@ -7499,7 +7499,7 @@ class AIAgent:
             )
         elif function_name == "memory":
             target = function_args.get("target", "memory")
-            from tools.memory_tool import memory_tool as _memory_tool
+            from hermes_agent.tools.memory import memory_tool as _memory_tool
             result = _memory_tool(
                 action=function_args.get("action"),
                 target=target,
@@ -7521,7 +7521,7 @@ class AIAgent:
         elif self._memory_manager and self._memory_manager.has_tool(function_name):
             return self._memory_manager.handle_tool_call(function_name, function_args)
         elif function_name == "clarify":
-            from tools.clarify_tool import clarify_tool as _clarify_tool
+            from hermes_agent.tools.clarify import clarify_tool as _clarify_tool
             return _clarify_tool(
                 question=function_args.get("question", ""),
                 choices=function_args.get("choices"),
@@ -7684,7 +7684,7 @@ class AIAgent:
             # The callback is thread-local; the main thread's callback
             # is invisible to worker threads.
             try:
-                from tools.environments.base import set_activity_callback
+                from hermes_agent.backends.base import set_activity_callback
                 set_activity_callback(self._touch_activity)
             except Exception:
                 pass
@@ -7899,7 +7899,7 @@ class AIAgent:
             # Check plugin hooks for a block directive before executing.
             _block_msg: Optional[str] = None
             try:
-                from hermes_cli.plugins import get_pre_tool_call_block_message
+                from hermes_agent.cli.plugins import get_pre_tool_call_block_message
                 _block_msg = get_pre_tool_call_block_message(
                     function_name, function_args, task_id=effective_task_id or "",
                 )
@@ -7935,7 +7935,7 @@ class AIAgent:
             # the agent while a command is running.
             if _block_msg is None:
                 try:
-                    from tools.environments.base import set_activity_callback
+                    from hermes_agent.backends.base import set_activity_callback
                     set_activity_callback(self._touch_activity)
                 except Exception:
                     pass
@@ -7984,7 +7984,7 @@ class AIAgent:
                 function_result = json.dumps({"error": _block_msg}, ensure_ascii=False)
                 tool_duration = 0.0
             elif function_name == "todo":
-                from tools.todo_tool import todo_tool as _todo_tool
+                from hermes_agent.tools.todo import todo_tool as _todo_tool
                 function_result = _todo_tool(
                     todos=function_args.get("todos"),
                     merge=function_args.get("merge", False),
@@ -7997,7 +7997,7 @@ class AIAgent:
                 if not self._session_db:
                     function_result = json.dumps({"success": False, "error": "Session database not available."})
                 else:
-                    from tools.session_search_tool import session_search as _session_search
+                    from hermes_agent.tools.session_search import session_search as _session_search
                     function_result = _session_search(
                         query=function_args.get("query", ""),
                         role_filter=function_args.get("role_filter"),
@@ -8010,7 +8010,7 @@ class AIAgent:
                     self._vprint(f"  {_get_cute_tool_message_impl('session_search', function_args, tool_duration, result=function_result)}")
             elif function_name == "memory":
                 target = function_args.get("target", "memory")
-                from tools.memory_tool import memory_tool as _memory_tool
+                from hermes_agent.tools.memory import memory_tool as _memory_tool
                 function_result = _memory_tool(
                     action=function_args.get("action"),
                     target=target,
@@ -8032,7 +8032,7 @@ class AIAgent:
                 if self._should_emit_quiet_tool_messages():
                     self._vprint(f"  {_get_cute_tool_message_impl('memory', function_args, tool_duration, result=function_result)}")
             elif function_name == "clarify":
-                from tools.clarify_tool import clarify_tool as _clarify_tool
+                from hermes_agent.tools.clarify import clarify_tool as _clarify_tool
                 function_result = _clarify_tool(
                     question=function_args.get("question", ""),
                     choices=function_args.get("choices"),
@@ -8287,7 +8287,7 @@ class AIAgent:
 
             summary_extra_body = {}
             try:
-                from agent.auxiliary_client import _fixed_temperature_for_model, OMIT_TEMPERATURE as _OMIT_TEMP
+                from hermes_agent.providers.auxiliary import _fixed_temperature_for_model, OMIT_TEMPERATURE as _OMIT_TEMP
             except Exception:
                 _fixed_temperature_for_model = None
                 _OMIT_TEMP = None
@@ -8454,7 +8454,7 @@ class AIAgent:
 
         # Tag all log records on this thread with the session ID so
         # ``hermes logs --session <id>`` can filter a single conversation.
-        from hermes_logging import set_session_context
+        from hermes_agent.logging import set_session_context
         set_session_context(self.session_id)
 
         # If the previous turn activated fallback, restore the primary
@@ -8616,7 +8616,7 @@ class AIAgent:
                 # continuation).  Plugins can use this to initialise
                 # session-scoped state (e.g. warm a memory cache).
                 try:
-                    from hermes_cli.plugins import invoke_hook as _invoke_hook
+                    from hermes_agent.cli.plugins import invoke_hook as _invoke_hook
                     _invoke_hook(
                         "on_session_start",
                         session_id=self.session_id,
@@ -8717,7 +8717,7 @@ class AIAgent:
         # All injected context is ephemeral (not persisted to session DB).
         _plugin_user_context = ""
         try:
-            from hermes_cli.plugins import invoke_hook as _invoke_hook
+            from hermes_agent.cli.plugins import invoke_hook as _invoke_hook
             _pre_results = _invoke_hook(
                 "pre_llm_call",
                 session_id=self.session_id,
@@ -9091,7 +9091,7 @@ class AIAgent:
                 # deepens the rate limit hole.
                 if self.provider == "nous":
                     try:
-                        from agent.nous_rate_guard import (
+                        from hermes_agent.providers.nous_rate_guard import (
                             nous_rate_limit_remaining,
                             format_remaining as _fmt_nous_remaining,
                         )
@@ -9140,7 +9140,7 @@ class AIAgent:
                         api_kwargs = self._get_codex_transport().preflight_kwargs(api_kwargs, allow_stream=False)
 
                     try:
-                        from hermes_cli.plugins import invoke_hook as _invoke_hook
+                        from hermes_agent.cli.plugins import invoke_hook as _invoke_hook
                         _invoke_hook(
                             "pre_api_request",
                             task_id=effective_task_id,
@@ -9765,7 +9765,7 @@ class AIAgent:
                     # resume hitting Nous.
                     if self.provider == "nous":
                         try:
-                            from agent.nous_rate_guard import clear_nous_rate_limit
+                            from hermes_agent.providers.nous_rate_guard import clear_nous_rate_limit
                             clear_nous_rate_limit()
                         except Exception:
                             pass
@@ -10013,7 +10013,7 @@ class AIAgent:
                         and not anthropic_auth_retry_attempted
                     ):
                         anthropic_auth_retry_attempted = True
-                        from agent.anthropic_adapter import _is_oauth_token
+                        from hermes_agent.providers.anthropic_adapter import _is_oauth_token
                         if self._try_refresh_anthropic_client_credentials():
                             print(f"{self.log_prefix}🔐 Anthropic credentials refreshed after 401. Retrying request...")
                             continue
@@ -10024,7 +10024,7 @@ class AIAgent:
                         print(f"{self.log_prefix}   Auth method: {auth_method}")
                         print(f"{self.log_prefix}   Token prefix: {str(key)[:12]}..." if key and len(str(key)) > 12 else f"{self.log_prefix}   Token: (empty or short)")
                         print(f"{self.log_prefix}   Troubleshooting:")
-                        from hermes_constants import display_hermes_home as _dhh_fn
+                        from hermes_agent.constants import display_hermes_home as _dhh_fn
                         _dhh = _dhh_fn()
                         print(f"{self.log_prefix}     • Check ANTHROPIC_TOKEN in {_dhh}/.env for Hermes-managed OAuth/setup tokens")
                         print(f"{self.log_prefix}     • Check ANTHROPIC_API_KEY in {_dhh}/.env for API keys or legacy token values")
@@ -10233,7 +10233,7 @@ class AIAgent:
                         and not recovered_with_pool
                     ):
                         try:
-                            from agent.nous_rate_guard import record_nous_rate_limit
+                            from hermes_agent.providers.nous_rate_guard import record_nous_rate_limit
                             _err_resp = getattr(api_error, "response", None)
                             _err_hdrs = (
                                 getattr(_err_resp, "headers", None)
@@ -10776,7 +10776,7 @@ class AIAgent:
                         assistant_message.content = str(raw)
 
                 try:
-                    from hermes_cli.plugins import invoke_hook as _invoke_hook
+                    from hermes_agent.cli.plugins import invoke_hook as _invoke_hook
                     _assistant_tool_calls = getattr(assistant_message, "tool_calls", None) or []
                     _assistant_text = assistant_message.content or ""
                     _invoke_hook(
@@ -11642,7 +11642,7 @@ class AIAgent:
         # to an external memory system).
         if final_response and not interrupted:
             try:
-                from hermes_cli.plugins import invoke_hook as _invoke_hook
+                from hermes_agent.cli.plugins import invoke_hook as _invoke_hook
                 _invoke_hook(
                     "post_llm_call",
                     session_id=self.session_id,
@@ -11747,7 +11747,7 @@ class AIAgent:
         # Fired at the very end of every run_conversation call.
         # Plugins can use this for cleanup, flushing buffers, etc.
         try:
-            from hermes_cli.plugins import invoke_hook as _invoke_hook
+            from hermes_agent.cli.plugins import invoke_hook as _invoke_hook
             _invoke_hook(
                 "on_session_end",
                 session_id=self.session_id,
@@ -11817,8 +11817,8 @@ def main(
     
     # Handle tool listing
     if list_tools:
-        from model_tools import get_all_tool_names, get_available_toolsets
-        from toolsets import get_all_toolsets, get_toolset_info
+        from hermes_agent.tools.dispatch import get_all_tool_names, get_available_toolsets
+        from hermes_agent.tools.toolsets import get_all_toolsets, get_toolset_info
         
         print("📋 Available Tools & Toolsets:")
         print("-" * 50)

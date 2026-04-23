@@ -9,7 +9,7 @@ arbitrary toolsets.
 from unittest.mock import MagicMock, patch
 from types import SimpleNamespace
 
-from tools.delegate_tool import _strip_blocked_tools
+from hermes_agent.tools.delegate import _strip_blocked_tools
 
 
 class TestToolsetIntersection:

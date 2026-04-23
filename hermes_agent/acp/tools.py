@@ -103,7 +103,7 @@ def _build_patch_mode_content(patch_text: str) -> List[Any]:
         return [acp.tool_content(acp.text_block(""))]
 
     try:
-        from tools.patch_parser import OperationType, parse_v4a_patch
+        from hermes_agent.tools.patch_parser import OperationType, parse_v4a_patch
 
         operations, error = parse_v4a_patch(patch_text)
         if error or not operations:
@@ -243,7 +243,7 @@ def _build_tool_complete_content(
 
     if tool_name in {"write_file", "patch", "skill_manage"}:
         try:
-            from agent.display import extract_edit_diff
+            from hermes_agent.agent.display import extract_edit_diff
 
             diff_text = extract_edit_diff(
                 tool_name,

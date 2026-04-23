@@ -709,7 +709,7 @@ class YCBenchEvalEnv(HermesAgentBaseEnv):
             tqdm.write("\n[INTERRUPTED] Stopping evaluation...")
             pbar.close()
             try:
-                from tools.terminal_tool import cleanup_all_environments
+                from hermes_agent.tools.terminal import cleanup_all_environments
                 cleanup_all_environments()
             except Exception:
                 pass
@@ -819,7 +819,7 @@ class YCBenchEvalEnv(HermesAgentBaseEnv):
             print(f"Results saved to: {self._streaming_path}")
 
         try:
-            from tools.terminal_tool import cleanup_all_environments
+            from hermes_agent.tools.terminal import cleanup_all_environments
             cleanup_all_environments()
         except Exception:
             pass

@@ -33,8 +33,8 @@ import time
 import uuid
 from typing import Any, Dict, List, Optional
 from aiohttp import web
-from gateway.config import Platform, PlatformConfig
-from gateway.platforms.base import (
+from hermes_agent.gateway.config import Platform, PlatformConfig
+from hermes_agent.gateway.platforms.base import (
     BasePlatformAdapter,
     SendResult,
     is_network_accessible,
@@ -279,7 +279,7 @@ class ResponseStore:
         self._max_size = max_size
         if db_path is None:
             try:
-                from hermes_cli.config import get_hermes_home
+                from hermes_agent.cli.config import get_hermes_home
                 db_path = str(get_hermes_home() / "response_store.db")
             except Exception:
                 db_path = ":memory:"
@@ -513,7 +513,7 @@ def _derive_chat_session_id(
 
 _CRON_AVAILABLE = False
 try:
-    from cron.jobs import (
+    from hermes_agent.cron.jobs import (
         list_jobs as _cron_list,
         get_job as _cron_get,
         create_job as _cron_create,
@@ -592,7 +592,7 @@ class APIServerAdapter(BasePlatformAdapter):
         if explicit and explicit.strip():
             return explicit.strip()
         try:
-            from hermes_cli.profiles import get_active_profile_name
+            from hermes_agent.cli.profiles import get_active_profile_name
             profile = get_active_profile_name()
             if profile and profile not in ("default", "custom"):
                 return profile
@@ -668,7 +668,7 @@ class APIServerAdapter(BasePlatformAdapter):
         """
         if self._session_db is None:
             try:
-                from hermes_state import SessionDB
+                from hermes_agent.state import SessionDB
                 self._session_db = SessionDB()
             except Exception as e:
                 logger.debug("SessionDB unavailable for API server: %s", e)
@@ -695,9 +695,9 @@ class APIServerAdapter(BasePlatformAdapter):
         from config.yaml platform_toolsets.api_server (same as all other
         gateway platforms), falling back to the hermes-api-server default.
         """
-        from run_agent import AIAgent
-        from gateway.run import _resolve_runtime_agent_kwargs, _resolve_gateway_model, _load_gateway_config
-        from hermes_cli.tools_config import _get_platform_tools
+        from hermes_agent.agent.loop import AIAgent
+        from hermes_agent.gateway.run import _resolve_runtime_agent_kwargs, _resolve_gateway_model, _load_gateway_config
+        from hermes_agent.cli.tools_config import _get_platform_tools
 
         runtime_kwargs = _resolve_runtime_agent_kwargs()
         model = _resolve_gateway_model()
@@ -709,7 +709,7 @@ class APIServerAdapter(BasePlatformAdapter):
 
         # Load fallback provider chain so the API server platform has the
         # same fallback behaviour as Telegram/Discord/Slack (fixes #4954).
-        from gateway.run import GatewayRunner
+        from hermes_agent.gateway.run import GatewayRunner
         fallback_model = GatewayRunner._load_fallback_model()
 
         agent = AIAgent(
@@ -746,7 +746,7 @@ class APIServerAdapter(BasePlatformAdapter):
         dashboard can display full status without needing a shared PID file or
         /proc access.  No authentication required.
         """
-        from gateway.status import read_runtime_status
+        from hermes_agent.gateway.status import read_runtime_status
 
         runtime = read_runtime_status() or {}
         return web.json_response({
@@ -927,7 +927,7 @@ class APIServerAdapter(BasePlatformAdapter):
                     return
                 if name.startswith("_"):
                     return
-                from agent.display import get_tool_emoji
+                from hermes_agent.agent.display import get_tool_emoji
                 emoji = get_tool_emoji(name)
                 label = preview or name
                 _stream_q.put(("__tool_progress__", {
@@ -2505,7 +2505,7 @@ class APIServerAdapter(BasePlatformAdapter):
             # Ported from openclaw/openclaw#64586.
             if is_network_accessible(self._host) and self._api_key:
                 try:
-                    from hermes_cli.auth import has_usable_secret
+                    from hermes_agent.cli.auth.auth import has_usable_secret
                     if not has_usable_secret(self._api_key, min_length=8):
                         logger.error(
                             "[%s] Refusing to start: API_SERVER_KEY is set to a "

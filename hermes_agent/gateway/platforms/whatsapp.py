@@ -30,7 +30,7 @@ from typing import Dict, Optional, Any, TYPE_CHECKING
 if TYPE_CHECKING:
     import aiohttp
 
-from hermes_constants import get_hermes_dir
+from hermes_agent.constants import get_hermes_dir
 
 logger = logging.getLogger(__name__)
 
@@ -100,11 +100,8 @@ def _terminate_bridge_process(proc, *, force: bool = False) -> None:
     sig = signal.SIGTERM if not force else signal.SIGKILL
     os.killpg(os.getpgid(proc.pid), sig)
 
-import sys
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-
-from gateway.config import Platform, PlatformConfig
-from gateway.platforms.base import (
+from hermes_agent.gateway.config import Platform, PlatformConfig
+from hermes_agent.gateway.platforms.base import (
     BasePlatformAdapter,
     MessageEvent,
     MessageType,

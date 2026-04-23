@@ -19,7 +19,7 @@ import time
 
 import pytest
 
-from tools.environments.local import LocalEnvironment
+from hermes_agent.backends.local import LocalEnvironment
 
 
 @pytest.fixture(autouse=True)

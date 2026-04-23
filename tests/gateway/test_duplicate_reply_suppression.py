@@ -18,15 +18,15 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from gateway.config import Platform, PlatformConfig
-from gateway.platforms.base import (
+from hermes_agent.gateway.config import Platform, PlatformConfig
+from hermes_agent.gateway.platforms.base import (
     BasePlatformAdapter,
     MessageEvent,
     MessageType,
     ProcessingOutcome,
     SendResult,
 )
-from gateway.session import SessionSource, build_session_key
+from hermes_agent.gateway.session import SessionSource, build_session_key
 
 
 # ---------------------------------------------------------------------------

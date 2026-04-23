@@ -8,7 +8,7 @@ from unittest import mock
 
 import pytest
 
-from gateway.config import Platform, PlatformConfig
+from hermes_agent.gateway.config import Platform, PlatformConfig
 
 
 # ---------------------------------------------------------------------------
@@ -26,7 +26,7 @@ def _make_config(**extra):
 
 class TestQQRequirements:
     def test_returns_bool(self):
-        from gateway.platforms.qqbot import check_qq_requirements
+        from hermes_agent.gateway.platforms.qqbot import check_qq_requirements
         result = check_qq_requirements()
         assert isinstance(result, bool)
 
@@ -37,7 +37,7 @@ class TestQQRequirements:
 
 class TestQQAdapterInit:
     def _make(self, **extra):
-        from gateway.platforms.qqbot import QQAdapter
+        from hermes_agent.gateway.platforms.qqbot import QQAdapter
         return QQAdapter(_make_config(**extra))
 
     def test_basic_attributes(self):
@@ -103,7 +103,7 @@ class TestQQAdapterInit:
 
 class TestCoerceList:
     def _fn(self, value):
-        from gateway.platforms.qqbot import _coerce_list
+        from hermes_agent.gateway.platforms.qqbot import _coerce_list
         return _coerce_list(value)
 
     def test_none(self):
@@ -131,7 +131,7 @@ class TestCoerceList:
 
 class TestIsVoiceContentType:
     def _fn(self, content_type, filename):
-        from gateway.platforms.qqbot import QQAdapter
+        from hermes_agent.gateway.platforms.qqbot import QQAdapter
         return QQAdapter._is_voice_content_type(content_type, filename)
 
     def test_voice_content_type(self):
@@ -156,14 +156,14 @@ class TestIsVoiceContentType:
 
 class TestVoiceAttachmentSSRFProtection:
     def _make_adapter(self, **extra):
-        from gateway.platforms.qqbot import QQAdapter
+        from hermes_agent.gateway.platforms.qqbot import QQAdapter
         return QQAdapter(_make_config(**extra))
 
     def test_stt_blocks_unsafe_download_url(self):
         adapter = self._make_adapter(app_id="a", client_secret="b")
         adapter._http_client = mock.AsyncMock()
 
-        with mock.patch("tools.url_safety.is_safe_url", return_value=False):
+        with mock.patch("hermes_agent.tools.security.urls.is_safe_url", return_value=False):
             transcript = asyncio.run(
                 adapter._stt_voice_attachment(
                     "http://127.0.0.1/voice.silk",
@@ -176,10 +176,10 @@ class TestVoiceAttachmentSSRFProtection:
         adapter._http_client.get.assert_not_called()
 
     def test_connect_uses_redirect_guard_hook(self):
-        from gateway.platforms.qqbot import QQAdapter, _ssrf_redirect_guard
+        from hermes_agent.gateway.platforms.qqbot import QQAdapter, _ssrf_redirect_guard
 
         client = mock.AsyncMock()
-        with mock.patch("gateway.platforms.qqbot.adapter.httpx.AsyncClient", return_value=client) as async_client_cls:
+        with mock.patch("hermes_agent.gateway.platforms.qqbot.adapter.httpx.AsyncClient", return_value=client) as async_client_cls:
             adapter = QQAdapter(_make_config(app_id="a", client_secret="b"))
             adapter._ensure_token = mock.AsyncMock(side_effect=RuntimeError("stop after client creation"))
 
@@ -197,7 +197,7 @@ class TestVoiceAttachmentSSRFProtection:
 
 class TestStripAtMention:
     def _fn(self, content):
-        from gateway.platforms.qqbot import QQAdapter
+        from hermes_agent.gateway.platforms.qqbot import QQAdapter
         return QQAdapter._strip_at_mention(content)
 
     def test_removes_mention(self):
@@ -221,7 +221,7 @@ class TestStripAtMention:
 
 class TestDmAllowed:
     def _make_adapter(self, **extra):
-        from gateway.platforms.qqbot import QQAdapter
+        from hermes_agent.gateway.platforms.qqbot import QQAdapter
         return QQAdapter(_make_config(**extra))
 
     def test_open_policy(self):
@@ -251,7 +251,7 @@ class TestDmAllowed:
 
 class TestGroupAllowed:
     def _make_adapter(self, **extra):
-        from gateway.platforms.qqbot import QQAdapter
+        from hermes_agent.gateway.platforms.qqbot import QQAdapter
         return QQAdapter(_make_config(**extra))
 
     def test_open_policy(self):
@@ -273,7 +273,7 @@ class TestGroupAllowed:
 
 class TestResolveSTTConfig:
     def _make_adapter(self, **extra):
-        from gateway.platforms.qqbot import QQAdapter
+        from hermes_agent.gateway.platforms.qqbot import QQAdapter
         return QQAdapter(_make_config(**extra))
 
     def test_no_config(self):
@@ -315,23 +315,23 @@ class TestResolveSTTConfig:
 
 class TestDetectMessageType:
     def _fn(self, media_urls, media_types):
-        from gateway.platforms.qqbot import QQAdapter
+        from hermes_agent.gateway.platforms.qqbot import QQAdapter
         return QQAdapter._detect_message_type(media_urls, media_types)
 
     def test_no_media(self):
-        from gateway.platforms.base import MessageType
+        from hermes_agent.gateway.platforms.base import MessageType
         assert self._fn([], []) == MessageType.TEXT
 
     def test_image(self):
-        from gateway.platforms.base import MessageType
+        from hermes_agent.gateway.platforms.base import MessageType
         assert self._fn(["file.jpg"], ["image/jpeg"]) == MessageType.PHOTO
 
     def test_voice(self):
-        from gateway.platforms.base import MessageType
+        from hermes_agent.gateway.platforms.base import MessageType
         assert self._fn(["voice.silk"], ["audio/silk"]) == MessageType.VOICE
 
     def test_video(self):
-        from gateway.platforms.base import MessageType
+        from hermes_agent.gateway.platforms.base import MessageType
         assert self._fn(["vid.mp4"], ["video/mp4"]) == MessageType.VIDEO
 
 
@@ -341,24 +341,24 @@ class TestDetectMessageType:
 
 class TestQQCloseError:
     def test_attributes(self):
-        from gateway.platforms.qqbot import QQCloseError
+        from hermes_agent.gateway.platforms.qqbot import QQCloseError
         err = QQCloseError(4004, "bad token")
         assert err.code == 4004
         assert err.reason == "bad token"
 
     def test_code_none(self):
-        from gateway.platforms.qqbot import QQCloseError
+        from hermes_agent.gateway.platforms.qqbot import QQCloseError
         err = QQCloseError(None, "")
         assert err.code is None
 
     def test_string_to_int(self):
-        from gateway.platforms.qqbot import QQCloseError
+        from hermes_agent.gateway.platforms.qqbot import QQCloseError
         err = QQCloseError("4914", "banned")
         assert err.code == 4914
         assert err.reason == "banned"
 
     def test_message_format(self):
-        from gateway.platforms.qqbot import QQCloseError
+        from hermes_agent.gateway.platforms.qqbot import QQCloseError
         err = QQCloseError(4008, "rate limit")
         assert "4008" in str(err)
         assert "rate limit" in str(err)
@@ -370,7 +370,7 @@ class TestQQCloseError:
 
 class TestDispatchPayload:
     def _make_adapter(self, **extra):
-        from gateway.platforms.qqbot import QQAdapter
+        from hermes_agent.gateway.platforms.qqbot import QQAdapter
         adapter = QQAdapter(_make_config(**extra))
         return adapter
 
@@ -410,7 +410,7 @@ class TestDispatchPayload:
 
 class TestReadyHandling:
     def _make_adapter(self, **extra):
-        from gateway.platforms.qqbot import QQAdapter
+        from hermes_agent.gateway.platforms.qqbot import QQAdapter
         return QQAdapter(_make_config(**extra))
 
     def test_ready_stores_session(self):
@@ -440,7 +440,7 @@ class TestReadyHandling:
 
 class TestParseJson:
     def _fn(self, raw):
-        from gateway.platforms.qqbot import QQAdapter
+        from hermes_agent.gateway.platforms.qqbot import QQAdapter
         return QQAdapter._parse_json(raw)
 
     def test_valid_json(self):
@@ -470,7 +470,7 @@ class TestParseJson:
 
 class TestBuildTextBody:
     def _make_adapter(self, **extra):
-        from gateway.platforms.qqbot import QQAdapter
+        from hermes_agent.gateway.platforms.qqbot import QQAdapter
         return QQAdapter(_make_config(**extra))
 
     def test_plain_text(self):
@@ -510,7 +510,7 @@ class TestWaitForReconnection:
     """Test that send() waits for reconnection instead of silently dropping."""
 
     def _make_adapter(self, **extra):
-        from gateway.platforms.qqbot import QQAdapter
+        from hermes_agent.gateway.platforms.qqbot import QQAdapter
         return QQAdapter(_make_config(**extra))
 
     @pytest.mark.asyncio

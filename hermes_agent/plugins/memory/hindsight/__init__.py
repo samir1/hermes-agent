@@ -24,12 +24,12 @@ import logging
 import os
 import threading
 
-from hermes_constants import get_hermes_home
+from hermes_agent.constants import get_hermes_home
 from typing import Any, Dict, List
 
-from agent.memory_provider import MemoryProvider
-from hermes_constants import get_hermes_home
-from tools.registry import tool_error
+from hermes_agent.agent.memory.provider import MemoryProvider
+from hermes_agent.constants import get_hermes_home
+from hermes_agent.tools.registry import tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -266,9 +266,9 @@ class HindsightMemoryProvider(MemoryProvider):
         import sys
         from pathlib import Path
 
-        from hermes_cli.config import save_config
+        from hermes_agent.cli.config import save_config
 
-        from hermes_cli.memory_setup import _curses_select
+        from hermes_agent.cli.memory_setup import _curses_select
 
         print("\n  Configuring Hindsight memory:\n")
 

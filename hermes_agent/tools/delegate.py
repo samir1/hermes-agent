@@ -26,9 +26,9 @@ import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError, as_completed
 from typing import Any, Dict, List, Optional
 
-from toolsets import TOOLSETS
-from tools import file_state
-from utils import base_url_hostname
+from hermes_agent.tools.toolsets import TOOLSETS
+from hermes_agent.tools.files import state as file_state
+from hermes_agent.utils import base_url_hostname
 
 
 # Tools that children must never have access to
@@ -455,7 +455,7 @@ def _build_child_progress_callback(task_index: int, goal: str, parent_agent, tas
         # TASK_TOOL_STARTED — display and batch for parent relay
         if spinner:
             short = (preview[:35] + "...") if preview and len(preview) > 35 else (preview or "")
-            from agent.display import get_tool_emoji
+            from hermes_agent.agent.display import get_tool_emoji
             emoji = get_tool_emoji(tool_name or "")
             line = f" {prefix}├─ {emoji} {tool_name}"
             if short:
@@ -515,7 +515,7 @@ def _build_child_agent(
     routing subagents to a different provider:model pair (e.g. cheap/fast
     model on OpenRouter while the parent runs on Nous Portal).
     """
-    from run_agent import AIAgent
+    from hermes_agent.agent.loop import AIAgent
 
     # ── Role resolution ─────────────────────────────────────────────────
     # Honor the caller's role only when BOTH the kill switch and the
@@ -537,7 +537,7 @@ def _build_child_agent(
         parent_toolsets = set(parent_enabled)
     elif parent_agent and hasattr(parent_agent, "valid_tool_names"):
         # enabled_toolsets is None (all tools) — derive from loaded tool names
-        import model_tools
+        import hermes_agent.tools.dispatch
         parent_toolsets = {
             ts for name in parent_agent.valid_tool_names
             if (ts := model_tools.get_toolset_for_tool(name)) is not None
@@ -611,7 +611,7 @@ def _build_child_agent(
         delegation_cfg = _load_config()
         delegation_effort = str(delegation_cfg.get("reasoning_effort") or "").strip()
         if delegation_effort:
-            from hermes_constants import parse_reasoning_effort
+            from hermes_agent.constants import parse_reasoning_effort
             parsed = parse_reasoning_effort(delegation_effort)
             if parsed is not None:
                 child_reasoning = parsed
@@ -695,7 +695,7 @@ def _run_single_child(
 
     # Restore parent tool names using the value saved before child construction
     # mutated the global. This is the correct parent toolset, not the child's.
-    import model_tools
+    import hermes_agent.tools.dispatch
     _saved_tool_names = getattr(child, "_delegate_saved_tool_names",
                                 list(model_tools._last_resolved_tool_names))
 
@@ -1028,7 +1028,7 @@ def _run_single_child(
 
         # Restore the parent's tool names so the process-global is correct
         # for any subsequent execute_code calls or other consumers.
-        import model_tools
+        import hermes_agent.tools.dispatch
 
         saved_tool_names = getattr(child, "_delegate_saved_tool_names", None)
         if isinstance(saved_tool_names, list):
@@ -1131,7 +1131,7 @@ def delegate_task(
         task_list = tasks
     elif goal and isinstance(goal, str) and goal.strip():
         task_list = [{"goal": goal, "context": context,
-                      "toolsets": toolsets, "role": top_role}]
+                      "hermes_agent.tools.toolsets": toolsets, "role": top_role}]
     else:
         return tool_error("Provide either 'goal' (single task) or 'tasks' (batch).")
 
@@ -1153,7 +1153,7 @@ def delegate_task(
     # Save parent tool names BEFORE any child construction mutates the global.
     # _build_child_agent() calls AIAgent() which calls get_tool_definitions(),
     # which overwrites model_tools._last_resolved_tool_names with child's toolset.
-    import model_tools as _model_tools
+    import hermes_agent.tools.dispatch as _model_tools
     _parent_tool_names = list(_model_tools._last_resolved_tool_names)
 
     # Build all child agents on the main thread (thread-safe construction)
@@ -1324,7 +1324,7 @@ def delegate_task(
     # child was closed.
     _parent_session_id = getattr(parent_agent, "session_id", None)
     try:
-        from hermes_cli.plugins import invoke_hook as _invoke_hook
+        from hermes_agent.cli.plugins import invoke_hook as _invoke_hook
     except Exception:
         _invoke_hook = None
     for entry in results:
@@ -1370,7 +1370,7 @@ def _resolve_child_credential_pool(effective_provider: Optional[str], parent_age
         return parent_pool
 
     try:
-        from agent.credential_pool import load_pool
+        from hermes_agent.providers.credential_pool import load_pool
         pool = load_pool(effective_provider)
         if pool is not None and pool.has_credentials():
             return pool
@@ -1450,7 +1450,7 @@ def _resolve_delegation_credentials(cfg: dict, parent_agent) -> dict:
 
     # Provider is configured — resolve full credentials
     try:
-        from hermes_cli.runtime_provider import resolve_runtime_provider
+        from hermes_agent.cli.runtime_provider import resolve_runtime_provider
         runtime = resolve_runtime_provider(requested=configured_provider)
     except Exception as exc:
         raise ValueError(
@@ -1487,14 +1487,14 @@ def _load_config() -> dict:
     of the entry point (CLI, gateway, cron).
     """
     try:
-        from cli import CLI_CONFIG
+        from hermes_agent.cli.repl import CLI_CONFIG
         cfg = CLI_CONFIG.get("delegation", {})
         if cfg:
             return cfg
     except Exception:
         pass
     try:
-        from hermes_cli.config import load_config
+        from hermes_agent.cli.config import load_config
         full = load_config()
         return full.get("delegation", {})
     except Exception:
@@ -1557,7 +1557,7 @@ DELEGATE_TASK_SCHEMA = {
                     "specific you are, the better the subagent performs."
                 ),
             },
-            "toolsets": {
+            "hermes_agent.tools.toolsets": {
                 "type": "array",
                 "items": {"type": "string"},
                 "description": (
@@ -1576,7 +1576,7 @@ DELEGATE_TASK_SCHEMA = {
                     "properties": {
                         "goal": {"type": "string", "description": "Task goal"},
                         "context": {"type": "string", "description": "Task-specific context"},
-                        "toolsets": {
+                        "hermes_agent.tools.toolsets": {
                             "type": "array",
                             "items": {"type": "string"},
                             "description": f"Toolsets for this specific task. Available: {_TOOLSET_LIST_STR}. Use 'web' for network access, 'terminal' for shell, 'browser' for web interaction.",
@@ -1651,7 +1651,7 @@ DELEGATE_TASK_SCHEMA = {
 
 
 # --- Registry ---
-from tools.registry import registry, tool_error
+from hermes_agent.tools.registry import registry, tool_error
 
 registry.register(
     name="delegate_task",

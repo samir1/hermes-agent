@@ -5,13 +5,13 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from gateway.config import Platform, PlatformConfig
-from gateway.platforms.base import MessageEvent, MessageType, ProcessingOutcome
-from gateway.session import SessionSource
+from hermes_agent.gateway.config import Platform, PlatformConfig
+from hermes_agent.gateway.platforms.base import MessageEvent, MessageType, ProcessingOutcome
+from hermes_agent.gateway.session import SessionSource
 
 
 def _make_adapter(**extra_env):
-    from gateway.platforms.telegram import TelegramAdapter
+    from hermes_agent.gateway.platforms.telegram import TelegramAdapter
 
     adapter = object.__new__(TelegramAdapter)
     adapter.platform = Platform.TELEGRAM
@@ -246,7 +246,7 @@ def test_config_bridges_telegram_reactions(monkeypatch, tmp_path):
     # the var doesn't exist yet — load_gateway_config will overwrite it.
     monkeypatch.setenv("TELEGRAM_REACTIONS", "")
 
-    from gateway.config import load_gateway_config
+    from hermes_agent.gateway.config import load_gateway_config
     load_gateway_config()
 
     import os
@@ -265,7 +265,7 @@ def test_config_reactions_env_takes_precedence(monkeypatch, tmp_path):
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
     monkeypatch.setenv("TELEGRAM_REACTIONS", "false")
 
-    from gateway.config import load_gateway_config
+    from hermes_agent.gateway.config import load_gateway_config
     load_gateway_config()
 
     import os

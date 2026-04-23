@@ -18,7 +18,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from gateway.config import Platform
+from hermes_agent.gateway.config import Platform
 
 
 # ---------------------------------------------------------------------------
@@ -40,7 +40,7 @@ class _AsyncCM:
 
 def _make_adapter():
     """Create a WhatsAppAdapter with test attributes (bypass __init__)."""
-    from gateway.platforms.whatsapp import WhatsAppAdapter
+    from hermes_agent.gateway.platforms.whatsapp import WhatsAppAdapter
 
     adapter = WhatsAppAdapter.__new__(WhatsAppAdapter)
     adapter.platform = Platform.WHATSAPP
@@ -85,18 +85,18 @@ def _mock_aiohttp(status=200, json_data=None, json_side_effect=None):
 def _connect_patches(mock_proc, mock_fh, mock_client_cls=None):
     """Return a dict of common patches needed to reach the health-check loop."""
     patches = {
-        "gateway.platforms.whatsapp.check_whatsapp_requirements": True,
-        "gateway.platforms.whatsapp.asyncio.create_task": MagicMock(),
+        "hermes_agent.gateway.platforms.whatsapp.check_whatsapp_requirements": True,
+        "hermes_agent.gateway.platforms.whatsapp.asyncio.create_task": MagicMock(),
     }
     base = [
-        patch("gateway.platforms.whatsapp.check_whatsapp_requirements", return_value=True),
+        patch("hermes_agent.gateway.platforms.whatsapp.check_whatsapp_requirements", return_value=True),
         patch.object(Path, "exists", return_value=True),
         patch.object(Path, "mkdir", return_value=None),
         patch("subprocess.run", return_value=MagicMock(returncode=0)),
         patch("subprocess.Popen", return_value=mock_proc),
         patch("builtins.open", return_value=mock_fh),
-        patch("gateway.platforms.whatsapp.asyncio.sleep", new_callable=AsyncMock),
-        patch("gateway.platforms.whatsapp.asyncio.create_task"),
+        patch("hermes_agent.gateway.platforms.whatsapp.asyncio.sleep", new_callable=AsyncMock),
+        patch("hermes_agent.gateway.platforms.whatsapp.asyncio.create_task"),
     ]
     if mock_client_cls is not None:
         base.append(patch("aiohttp.ClientSession", mock_client_cls))
@@ -112,7 +112,7 @@ class TestCloseBridgeLog:
 
     @staticmethod
     def _bare_adapter():
-        from gateway.platforms.whatsapp import WhatsAppAdapter
+        from hermes_agent.gateway.platforms.whatsapp import WhatsAppAdapter
         a = WhatsAppAdapter.__new__(WhatsAppAdapter)
         a._bridge_log_fh = None
         return a
@@ -223,11 +223,11 @@ class TestConnectCleanup:
 
         install_result = MagicMock(returncode=1, stderr="install failed")
 
-        with patch("gateway.platforms.whatsapp.check_whatsapp_requirements", return_value=True), \
+        with patch("hermes_agent.gateway.platforms.whatsapp.check_whatsapp_requirements", return_value=True), \
              patch.object(Path, "exists", autospec=True, side_effect=_path_exists), \
              patch("subprocess.run", return_value=install_result), \
-             patch("gateway.status.acquire_scoped_lock", return_value=(True, None)), \
-             patch("gateway.status.release_scoped_lock") as mock_release:
+             patch("hermes_agent.gateway.status.acquire_scoped_lock", return_value=(True, None)), \
+             patch("hermes_agent.gateway.status.release_scoped_lock") as mock_release:
             result = await adapter.connect()
 
         assert result is False
@@ -342,7 +342,7 @@ class TestBridgeRuntimeFailure:
 
         mock_fh = MagicMock()
 
-        with patch("gateway.platforms.whatsapp.check_whatsapp_requirements", return_value=True), \
+        with patch("hermes_agent.gateway.platforms.whatsapp.check_whatsapp_requirements", return_value=True), \
              patch.object(Path, "exists", return_value=True), \
              patch.object(Path, "mkdir", return_value=None), \
              patch("subprocess.run", return_value=MagicMock(returncode=0)), \
@@ -363,7 +363,7 @@ class TestKillPortProcess:
     """Verify _kill_port_process uses platform-appropriate commands."""
 
     def test_uses_netstat_and_taskkill_on_windows(self):
-        from gateway.platforms.whatsapp import _kill_port_process
+        from hermes_agent.gateway.platforms.whatsapp import _kill_port_process
 
         netstat_output = (
             "  Proto  Local Address          Foreign Address        State           PID\n"
@@ -380,8 +380,8 @@ class TestKillPortProcess:
                 return mock_taskkill
             return MagicMock()
 
-        with patch("gateway.platforms.whatsapp._IS_WINDOWS", True), \
-             patch("gateway.platforms.whatsapp.subprocess.run", side_effect=run_side_effect) as mock_run:
+        with patch("hermes_agent.gateway.platforms.whatsapp._IS_WINDOWS", True), \
+             patch("hermes_agent.gateway.platforms.whatsapp.subprocess.run", side_effect=run_side_effect) as mock_run:
             _kill_port_process(3000)
 
         # netstat called
@@ -395,15 +395,15 @@ class TestKillPortProcess:
         )
 
     def test_does_not_kill_wrong_port_on_windows(self):
-        from gateway.platforms.whatsapp import _kill_port_process
+        from hermes_agent.gateway.platforms.whatsapp import _kill_port_process
 
         netstat_output = (
             "  TCP    0.0.0.0:30000          0.0.0.0:0              LISTENING       55555\n"
         )
         mock_netstat = MagicMock(stdout=netstat_output)
 
-        with patch("gateway.platforms.whatsapp._IS_WINDOWS", True), \
-             patch("gateway.platforms.whatsapp.subprocess.run", return_value=mock_netstat) as mock_run:
+        with patch("hermes_agent.gateway.platforms.whatsapp._IS_WINDOWS", True), \
+             patch("hermes_agent.gateway.platforms.whatsapp.subprocess.run", return_value=mock_netstat) as mock_run:
             _kill_port_process(3000)
 
         # Should NOT call taskkill because port 30000 != 3000
@@ -413,12 +413,12 @@ class TestKillPortProcess:
         )
 
     def test_uses_fuser_on_linux(self):
-        from gateway.platforms.whatsapp import _kill_port_process
+        from hermes_agent.gateway.platforms.whatsapp import _kill_port_process
 
         mock_check = MagicMock(returncode=0)
 
-        with patch("gateway.platforms.whatsapp._IS_WINDOWS", False), \
-             patch("gateway.platforms.whatsapp.subprocess.run", return_value=mock_check) as mock_run:
+        with patch("hermes_agent.gateway.platforms.whatsapp._IS_WINDOWS", False), \
+             patch("hermes_agent.gateway.platforms.whatsapp.subprocess.run", return_value=mock_check) as mock_run:
             _kill_port_process(3000)
 
         calls = [c.args[0] for c in mock_run.call_args_list]
@@ -426,12 +426,12 @@ class TestKillPortProcess:
         assert ["fuser", "-k", "3000/tcp"] in calls
 
     def test_skips_fuser_kill_when_port_free(self):
-        from gateway.platforms.whatsapp import _kill_port_process
+        from hermes_agent.gateway.platforms.whatsapp import _kill_port_process
 
         mock_check = MagicMock(returncode=1)  # port not in use
 
-        with patch("gateway.platforms.whatsapp._IS_WINDOWS", False), \
-             patch("gateway.platforms.whatsapp.subprocess.run", return_value=mock_check) as mock_run:
+        with patch("hermes_agent.gateway.platforms.whatsapp._IS_WINDOWS", False), \
+             patch("hermes_agent.gateway.platforms.whatsapp.subprocess.run", return_value=mock_check) as mock_run:
             _kill_port_process(3000)
 
         calls = [c.args[0] for c in mock_run.call_args_list]
@@ -439,10 +439,10 @@ class TestKillPortProcess:
         assert ["fuser", "-k", "3000/tcp"] not in calls
 
     def test_suppresses_exceptions(self):
-        from gateway.platforms.whatsapp import _kill_port_process
+        from hermes_agent.gateway.platforms.whatsapp import _kill_port_process
 
-        with patch("gateway.platforms.whatsapp._IS_WINDOWS", True), \
-             patch("gateway.platforms.whatsapp.subprocess.run", side_effect=OSError("no netstat")):
+        with patch("hermes_agent.gateway.platforms.whatsapp._IS_WINDOWS", True), \
+             patch("hermes_agent.gateway.platforms.whatsapp.subprocess.run", side_effect=OSError("no netstat")):
             _kill_port_process(3000)  # must not raise
 
 
@@ -466,9 +466,9 @@ class TestHttpSessionLifecycle:
         adapter._running = True
         adapter._session_lock_identity = None
 
-        with patch("gateway.platforms.whatsapp._IS_WINDOWS", True), \
-             patch("gateway.platforms.whatsapp.subprocess.run", return_value=MagicMock(returncode=0)) as mock_run, \
-             patch("gateway.platforms.whatsapp.asyncio.sleep", new_callable=AsyncMock):
+        with patch("hermes_agent.gateway.platforms.whatsapp._IS_WINDOWS", True), \
+             patch("hermes_agent.gateway.platforms.whatsapp.subprocess.run", return_value=MagicMock(returncode=0)) as mock_run, \
+             patch("hermes_agent.gateway.platforms.whatsapp.asyncio.sleep", new_callable=AsyncMock):
             await adapter.disconnect()
 
         mock_run.assert_called_once_with(

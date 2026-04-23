@@ -18,8 +18,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
 
 class FakeAgent:
     """Mock agent with controllable activity summary for timeout tests."""

@@ -1,12 +1,12 @@
 import json
 from unittest.mock import AsyncMock
 
-from gateway.config import Platform, PlatformConfig, load_gateway_config
+from hermes_agent.gateway.config import Platform, PlatformConfig, load_gateway_config
 
 
 def _make_adapter(require_mention=None, mention_patterns=None, free_response_chats=None,
                   dm_policy=None, allow_from=None, group_policy=None, group_allow_from=None):
-    from gateway.platforms.whatsapp import WhatsAppAdapter
+    from hermes_agent.gateway.platforms.whatsapp import WhatsAppAdapter
 
     extra = {}
     if require_mention is not None:

@@ -9,11 +9,11 @@ import threading
 from pathlib import Path
 from typing import Optional
 
-from agent.file_safety import get_read_block_error
-from tools.binary_extensions import has_binary_extension
-from tools.file_operations import ShellFileOperations
-from tools import file_state
-from agent.redact import redact_sensitive_text
+from hermes_agent.agent.file_safety import get_read_block_error
+from hermes_agent.tools.binary_extensions import has_binary_extension
+from hermes_agent.tools.files.operations import ShellFileOperations
+from hermes_agent.tools.files import state as file_state
+from hermes_agent.agent.redact import redact_sensitive_text
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +44,7 @@ def _get_max_read_chars() -> int:
     if _max_read_chars_cached is not None:
         return _max_read_chars_cached
     try:
-        from hermes_cli.config import load_config
+        from hermes_agent.cli.config import load_config
         cfg = load_config()
         val = cfg.get("file_read_max_chars")
         if isinstance(val, (int, float)) and val > 0:
@@ -226,7 +226,7 @@ def _get_file_ops(task_id: str = "default") -> ShellFileOperations:
     Thread-safe: uses the same per-task creation locks as terminal_tool to
     prevent duplicate sandbox creation from concurrent tool calls.
     """
-    from tools.terminal_tool import (
+    from hermes_agent.tools.terminal import (
         _active_environments, _env_lock, _create_environment,
         _get_env_config, _last_activity, _start_cleanup_thread,
         _creation_locks,
@@ -265,7 +265,7 @@ def _get_file_ops(task_id: str = "default") -> ShellFileOperations:
                 terminal_env = None
 
         if terminal_env is None:
-            from tools.terminal_tool import _task_env_overrides
+            from hermes_agent.tools.terminal import _task_env_overrides
 
             config = _get_env_config()
             env_type = config["env_type"]
@@ -829,12 +829,12 @@ def search_tool(pattern: str, target: str = "content", path: str = ".",
 # ---------------------------------------------------------------------------
 # Schemas + Registry
 # ---------------------------------------------------------------------------
-from tools.registry import registry, tool_error
+from hermes_agent.tools.registry import registry, tool_error
 
 
 def _check_file_reqs():
     """Lazy wrapper to avoid circular import with tools/__init__.py."""
-    from tools import check_file_requirements
+    from hermes_agent.tools import check_file_requirements
     return check_file_requirements()
 
 READ_FILE_SCHEMA = {

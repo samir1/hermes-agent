@@ -12,9 +12,9 @@ reasoning configuration, temperature handling, and extra_body assembly.
 import copy
 from typing import Any, Dict, List, Optional
 
-from agent.prompt_builder import DEVELOPER_ROLE_MODELS
-from agent.transports.base import ProviderTransport
-from agent.transports.types import NormalizedResponse, ToolCall, Usage
+from hermes_agent.agent.prompt_builder import DEVELOPER_ROLE_MODELS
+from hermes_agent.providers.base import ProviderTransport
+from hermes_agent.providers.types import NormalizedResponse, ToolCall, Usage
 
 
 class ChatCompletionsTransport(ProviderTransport):
@@ -382,6 +382,6 @@ class ChatCompletionsTransport(ProviderTransport):
 
 
 # Auto-register on import
-from agent.transports import register_transport  # noqa: E402
+from hermes_agent.providers import register_transport  # noqa: E402
 
 register_transport("chat_completions", ChatCompletionsTransport)

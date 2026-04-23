@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-import hermes_cli.doctor as doctor_mod
+import hermes_agent.cli.doctor as doctor_mod
 
 
 def _setup_doctor_env(monkeypatch, tmp_path, venv_name="venv"):
@@ -36,11 +36,11 @@ def _setup_doctor_env(monkeypatch, tmp_path, venv_name="venv"):
         check_tool_availability=lambda *a, **kw: ([], []),
         TOOLSET_REQUIREMENTS={},
     )
-    monkeypatch.setitem(sys.modules, "model_tools", fake_model_tools)
+    monkeypatch.setitem(sys.modules, "hermes_agent.tools.dispatch", fake_model_tools)
 
     # Stub auth checks
     try:
-        from hermes_cli import auth as _auth_mod
+        from hermes_agent.cli import auth as _auth_mod
         monkeypatch.setattr(_auth_mod, "get_nous_auth_status", lambda: {})
         monkeypatch.setattr(_auth_mod, "get_codex_auth_status", lambda: {})
     except Exception:
@@ -173,9 +173,9 @@ class TestDoctorCommandInstallation:
             check_tool_availability=lambda *a, **kw: ([], []),
             TOOLSET_REQUIREMENTS={},
         )
-        monkeypatch.setitem(sys.modules, "model_tools", fake_model_tools)
+        monkeypatch.setitem(sys.modules, "hermes_agent.tools.dispatch", fake_model_tools)
         try:
-            from hermes_cli import auth as _auth_mod
+            from hermes_agent.cli import auth as _auth_mod
             monkeypatch.setattr(_auth_mod, "get_nous_auth_status", lambda: {})
             monkeypatch.setattr(_auth_mod, "get_codex_auth_status", lambda: {})
         except Exception:
@@ -258,9 +258,9 @@ class TestDoctorCommandInstallation:
             check_tool_availability=lambda *a, **kw: ([], []),
             TOOLSET_REQUIREMENTS={},
         )
-        monkeypatch.setitem(sys.modules, "model_tools", fake_model_tools)
+        monkeypatch.setitem(sys.modules, "hermes_agent.tools.dispatch", fake_model_tools)
         try:
-            from hermes_cli import auth as _auth_mod
+            from hermes_agent.cli import auth as _auth_mod
             monkeypatch.setattr(_auth_mod, "get_nous_auth_status", lambda: {})
             monkeypatch.setattr(_auth_mod, "get_codex_auth_status", lambda: {})
         except Exception:

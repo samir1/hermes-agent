@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, AsyncMock, patch
 
 import pytest
 
-from gateway.config import Platform
+from hermes_agent.gateway.config import Platform
 
 
 def _make_httpx_mock():
@@ -53,7 +53,7 @@ class TestSendSignalMediaFiles:
 
     def test_send_signal_basic_text_without_media(self):
         """Backward compatibility: text-only signal messages work."""
-        from tools.send_message_tool import _send_signal
+        from hermes_agent.tools.send_message import _send_signal
 
         extra = {"http_url": "http://localhost:8080", "account": "+155****4567"}
 
@@ -65,7 +65,7 @@ class TestSendSignalMediaFiles:
 
     def test_send_signal_with_attachments(self, tmp_path):
         """Signal messages with media_files include attachments in JSON-RPC."""
-        from tools.send_message_tool import _send_signal
+        from hermes_agent.tools.send_message import _send_signal
 
         img_path = tmp_path / "test.png"
         img_path.write_bytes(b"\x89PNG")
@@ -81,7 +81,7 @@ class TestSendSignalMediaFiles:
 
     def test_send_signal_with_missing_media_file(self):
         """Missing media files should generate warnings but not fail."""
-        from tools.send_message_tool import _send_signal
+        from hermes_agent.tools.send_message import _send_signal
 
         extra = {"http_url": "http://localhost:8080", "account": "+155****4567"}
 
@@ -102,10 +102,10 @@ class TestSendSignalMediaRestrictions:
         import httpx
         if not hasattr(httpx, 'Proxy') or not hasattr(httpx, 'URL'):
             pytest.skip("httpx type annotations incompatible with telegram library")
-        from tools.send_message_tool import _send_to_platform
+        from hermes_agent.tools.send_message import _send_to_platform
 
         mock_result = {"success": True, "platform": "signal"}
-        with patch("tools.send_message_tool._send_signal", new=AsyncMock(return_value=mock_result)):
+        with patch("hermes_agent.tools.send_message._send_signal", new=AsyncMock(return_value=mock_result)):
             config = MagicMock()
             config.platforms = {Platform.SIGNAL: MagicMock(enabled=True)}
             config.get_home_channel.return_value = None
@@ -127,7 +127,7 @@ class TestSendSignalMediaRestrictions:
         import httpx
         if not hasattr(httpx, 'Proxy') or not hasattr(httpx, 'URL'):
             pytest.skip("httpx type annotations incompatible with telegram library")
-        from tools.send_message_tool import _send_to_platform
+        from hermes_agent.tools.send_message import _send_to_platform
 
         config = MagicMock()
         config.platforms = {Platform.SLACK: MagicMock(enabled=True)}
@@ -156,14 +156,14 @@ class TestSendSignalMediaWarningMessages:
         import httpx
         if not hasattr(httpx, 'Proxy') or not hasattr(httpx, 'URL'):
             pytest.skip("httpx type annotations incompatible with telegram library")
-        from tools.send_message_tool import _send_to_platform
+        from hermes_agent.tools.send_message import _send_to_platform
 
         config = MagicMock()
         config.platforms = {Platform.SLACK: MagicMock(enabled=True)}
         config.get_home_channel.return_value = None
 
         # Mock _send_slack so it succeeds -> then warning gets attached to result
-        with patch("tools.send_message_tool._send_slack", new=AsyncMock(return_value={"success": True})):
+        with patch("hermes_agent.tools.send_message._send_slack", new=AsyncMock(return_value={"success": True})):
             result = asyncio.run(
                 _send_to_platform(
                     Platform.SLACK,
@@ -185,7 +185,7 @@ class TestSendSignalGroupChats:
 
     def test_send_signal_group_with_attachments(self, tmp_path):
         """Group chat messages with attachments should use groupId parameter."""
-        from tools.send_message_tool import _send_signal
+        from hermes_agent.tools.send_message import _send_signal
 
         img_path = tmp_path / "test_attachment.pdf"
         img_path.write_bytes(b"%PDF-1.4")

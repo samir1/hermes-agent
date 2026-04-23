@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from gateway.config import Platform, PlatformConfig, HomeChannel
+from hermes_agent.gateway.config import Platform, PlatformConfig, HomeChannel
 
 
 # ── Config loading ──────────────────────────────────────────────────
@@ -21,7 +21,7 @@ class TestSmsConfigLoading:
     """Verify _apply_env_overrides wires SMS correctly."""
 
     def test_env_overrides_create_sms_config(self):
-        from gateway.config import load_gateway_config
+        from hermes_agent.gateway.config import load_gateway_config
 
         env = {
             "TWILIO_ACCOUNT_SID": "ACtest123",
@@ -36,7 +36,7 @@ class TestSmsConfigLoading:
             assert pc.api_key == "token_abc"
 
     def test_env_overrides_set_home_channel(self):
-        from gateway.config import load_gateway_config
+        from hermes_agent.gateway.config import load_gateway_config
 
         env = {
             "TWILIO_ACCOUNT_SID": "ACtest123",
@@ -59,7 +59,7 @@ class TestSmsFormatAndTruncate:
     """Test SmsAdapter.format_message strips markdown."""
 
     def _make_adapter(self):
-        from gateway.platforms.sms import SmsAdapter
+        from hermes_agent.gateway.platforms.sms import SmsAdapter
 
         env = {
             "TWILIO_ACCOUNT_SID": "ACtest",
@@ -115,7 +115,7 @@ class TestSmsEchoPrevention:
 
     def test_own_number_detection(self):
         """The adapter stores _from_number for echo prevention."""
-        from gateway.platforms.sms import SmsAdapter
+        from hermes_agent.gateway.platforms.sms import SmsAdapter
 
         env = {
             "TWILIO_ACCOUNT_SID": "ACtest",
@@ -132,21 +132,21 @@ class TestSmsEchoPrevention:
 
 class TestSmsRequirements:
     def test_check_sms_requirements_missing_sid(self):
-        from gateway.platforms.sms import check_sms_requirements
+        from hermes_agent.gateway.platforms.sms import check_sms_requirements
 
         env = {"TWILIO_AUTH_TOKEN": "tok"}
         with patch.dict(os.environ, env, clear=True):
             assert check_sms_requirements() is False
 
     def test_check_sms_requirements_missing_token(self):
-        from gateway.platforms.sms import check_sms_requirements
+        from hermes_agent.gateway.platforms.sms import check_sms_requirements
 
         env = {"TWILIO_ACCOUNT_SID": "ACtest"}
         with patch.dict(os.environ, env, clear=True):
             assert check_sms_requirements() is False
 
     def test_check_sms_requirements_both_set(self):
-        from gateway.platforms.sms import check_sms_requirements
+        from hermes_agent.gateway.platforms.sms import check_sms_requirements
 
         env = {
             "TWILIO_ACCOUNT_SID": "ACtest",
@@ -170,11 +170,11 @@ class TestWebhookHostConfig:
     """Verify SMS_WEBHOOK_HOST env var and default."""
 
     def test_default_host_is_all_interfaces(self):
-        from gateway.platforms.sms import DEFAULT_WEBHOOK_HOST
+        from hermes_agent.gateway.platforms.sms import DEFAULT_WEBHOOK_HOST
         assert DEFAULT_WEBHOOK_HOST == "0.0.0.0"
 
     def test_host_from_env(self):
-        from gateway.platforms.sms import SmsAdapter
+        from hermes_agent.gateway.platforms.sms import SmsAdapter
 
         env = {
             "TWILIO_ACCOUNT_SID": "ACtest",
@@ -188,7 +188,7 @@ class TestWebhookHostConfig:
             assert adapter._webhook_host == "127.0.0.1"
 
     def test_webhook_url_from_env(self):
-        from gateway.platforms.sms import SmsAdapter
+        from hermes_agent.gateway.platforms.sms import SmsAdapter
 
         env = {
             "TWILIO_ACCOUNT_SID": "ACtest",
@@ -202,7 +202,7 @@ class TestWebhookHostConfig:
             assert adapter._webhook_url == "https://example.com/webhooks/twilio"
 
     def test_webhook_url_stripped(self):
-        from gateway.platforms.sms import SmsAdapter
+        from hermes_agent.gateway.platforms.sms import SmsAdapter
 
         env = {
             "TWILIO_ACCOUNT_SID": "ACtest",
@@ -222,7 +222,7 @@ class TestStartupGuard:
     """Adapter must refuse to start without SMS_WEBHOOK_URL."""
 
     def _make_adapter(self, extra_env=None):
-        from gateway.platforms.sms import SmsAdapter
+        from hermes_agent.gateway.platforms.sms import SmsAdapter
 
         env = {
             "TWILIO_ACCOUNT_SID": "ACtest",
@@ -293,7 +293,7 @@ class TestTwilioSignatureValidation:
     """Unit tests for SmsAdapter._validate_twilio_signature."""
 
     def _make_adapter(self, auth_token="test_token_secret"):
-        from gateway.platforms.sms import SmsAdapter
+        from hermes_agent.gateway.platforms.sms import SmsAdapter
 
         env = {
             "TWILIO_ACCOUNT_SID": "ACtest",
@@ -403,7 +403,7 @@ class TestWebhookSignatureEnforcement:
     """Integration tests for signature validation in _handle_webhook."""
 
     def _make_adapter(self, webhook_url=""):
-        from gateway.platforms.sms import SmsAdapter
+        from hermes_agent.gateway.platforms.sms import SmsAdapter
 
         env = {
             "TWILIO_ACCOUNT_SID": "ACtest",

@@ -1,14 +1,12 @@
 """Tests for _stream_delta's handling of <think> tags in prose vs real reasoning blocks."""
 import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
-
 import pytest
 
 
 def _make_cli_stub():
     """Create a minimal HermesCLI-like object with stream state."""
-    from cli import HermesCLI
+    from hermes_agent.cli.repl import HermesCLI
 
     cli = HermesCLI.__new__(HermesCLI)
     cli.show_reasoning = False
@@ -130,7 +128,7 @@ class TestFlushRecovery:
         from unittest.mock import patch
         import shutil
         with patch.object(shutil, "get_terminal_size", return_value=os.terminal_size((80, 24))):
-            with patch("cli._cprint"):
+            with patch("hermes_agent.cli.repl._cprint"):
                 cli._flush_stream()
 
         assert not cli._in_reasoning_block

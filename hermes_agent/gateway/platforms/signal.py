@@ -26,8 +26,8 @@ from urllib.parse import quote, unquote
 
 import httpx
 
-from gateway.config import Platform, PlatformConfig
-from gateway.platforms.base import (
+from hermes_agent.gateway.config import Platform, PlatformConfig
+from hermes_agent.gateway.platforms.base import (
     BasePlatformAdapter,
     MessageEvent,
     MessageType,
@@ -37,7 +37,7 @@ from gateway.platforms.base import (
     cache_document_from_bytes,
     cache_image_from_url,
 )
-from gateway.platforms.helpers import redact_phone
+from hermes_agent.gateway.platforms.helpers import redact_phone
 
 logger = logging.getLogger(__name__)
 

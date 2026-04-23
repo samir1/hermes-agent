@@ -15,7 +15,7 @@ import time
 import unittest
 from unittest.mock import patch, MagicMock
 
-from tools.file_tools import (
+from hermes_agent.tools.files.tools import (
     read_file_tool,
     write_file_tool,
     patch_tool,
@@ -89,7 +89,7 @@ class TestStalenessCheck(unittest.TestCase):
         except OSError:
             pass
 
-    @patch("tools.file_tools._get_file_ops")
+    @patch("hermes_agent.tools.files.tools._get_file_ops")
     def test_no_warning_when_file_unchanged(self, mock_ops):
         """Read then write with no external modification — no warning."""
         mock_ops.return_value = _make_fake_ops("original content\n", 18)
@@ -98,7 +98,7 @@ class TestStalenessCheck(unittest.TestCase):
         result = json.loads(write_file_tool(self._tmpfile, "new content", task_id="t1"))
         self.assertNotIn("_warning", result)
 
-    @patch("tools.file_tools._get_file_ops")
+    @patch("hermes_agent.tools.files.tools._get_file_ops")
     def test_warning_when_file_modified_externally(self, mock_ops):
         """Read, then external modify, then write — should warn."""
         mock_ops.return_value = _make_fake_ops("original content\n", 18)
@@ -113,14 +113,14 @@ class TestStalenessCheck(unittest.TestCase):
         self.assertIn("_warning", result)
         self.assertIn("modified since you last read", result["_warning"])
 
-    @patch("tools.file_tools._get_file_ops")
+    @patch("hermes_agent.tools.files.tools._get_file_ops")
     def test_no_warning_when_file_never_read(self, mock_ops):
         """Writing a file that was never read — no warning."""
         mock_ops.return_value = _make_fake_ops()
         result = json.loads(write_file_tool(self._tmpfile, "new content", task_id="t2"))
         self.assertNotIn("_warning", result)
 
-    @patch("tools.file_tools._get_file_ops")
+    @patch("hermes_agent.tools.files.tools._get_file_ops")
     def test_no_warning_for_new_file(self, mock_ops):
         """Creating a new file — no warning."""
         mock_ops.return_value = _make_fake_ops()
@@ -132,7 +132,7 @@ class TestStalenessCheck(unittest.TestCase):
         except OSError:
             pass
 
-    @patch("tools.file_tools._get_file_ops")
+    @patch("hermes_agent.tools.files.tools._get_file_ops")
     def test_different_task_isolated(self, mock_ops):
         """Task A reads, file changes, Task B writes — no warning for B."""
         mock_ops.return_value = _make_fake_ops("original content\n", 18)
@@ -167,7 +167,7 @@ class TestPatchStaleness(unittest.TestCase):
         except OSError:
             pass
 
-    @patch("tools.file_tools._get_file_ops")
+    @patch("hermes_agent.tools.files.tools._get_file_ops")
     def test_patch_warns_on_stale_file(self, mock_ops):
         """Patch should warn if the target file changed since last read."""
         mock_ops.return_value = _make_fake_ops("original line\n", 15)
@@ -185,7 +185,7 @@ class TestPatchStaleness(unittest.TestCase):
         self.assertIn("_warning", result)
         self.assertIn("modified since you last read", result["_warning"])
 
-    @patch("tools.file_tools._get_file_ops")
+    @patch("hermes_agent.tools.files.tools._get_file_ops")
     def test_patch_no_warning_when_fresh(self, mock_ops):
         """Patch with no external changes — no warning."""
         mock_ops.return_value = _make_fake_ops("original line\n", 15)
@@ -216,7 +216,7 @@ class TestCheckFileStalenessHelper(unittest.TestCase):
 
     def test_returns_none_for_unread_file(self):
         # Populate tracker with a different file
-        from tools.file_tools import _read_tracker, _read_tracker_lock
+        from hermes_agent.tools.files.tools import _read_tracker, _read_tracker_lock
         with _read_tracker_lock:
             _read_tracker["t1"] = {
                 "last_key": None, "consecutive": 0,
@@ -226,7 +226,7 @@ class TestCheckFileStalenessHelper(unittest.TestCase):
         self.assertIsNone(_check_file_staleness("/tmp/x.py", "t1"))
 
     def test_returns_none_when_stat_fails(self):
-        from tools.file_tools import _read_tracker, _read_tracker_lock
+        from hermes_agent.tools.files.tools import _read_tracker, _read_tracker_lock
         with _read_tracker_lock:
             _read_tracker["t1"] = {
                 "last_key": None, "consecutive": 0,

@@ -8,7 +8,7 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-from hermes_cli.config import (
+from hermes_agent.cli.config import (
     DEFAULT_CONFIG,
     reload_env,
     redact_key,
@@ -29,7 +29,7 @@ class TestReloadEnv:
         """reload_env() adds vars from .env that are not in os.environ."""
         env_file = tmp_path / ".env"
         env_file.write_text("TEST_RELOAD_VAR=hello123\n")
-        with patch("hermes_cli.config.get_env_path", return_value=env_file):
+        with patch("hermes_agent.cli.config.get_env_path", return_value=env_file):
             os.environ.pop("TEST_RELOAD_VAR", None)
             count = reload_env()
             assert count >= 1
@@ -40,7 +40,7 @@ class TestReloadEnv:
         """reload_env() updates vars whose value changed on disk."""
         env_file = tmp_path / ".env"
         env_file.write_text("TEST_RELOAD_VAR=old_value\n")
-        with patch("hermes_cli.config.get_env_path", return_value=env_file):
+        with patch("hermes_agent.cli.config.get_env_path", return_value=env_file):
             os.environ["TEST_RELOAD_VAR"] = "old_value"
             # Now change the file
             env_file.write_text("TEST_RELOAD_VAR=new_value\n")
@@ -55,7 +55,7 @@ class TestReloadEnv:
         env_file.write_text("")  # empty .env
         # Pick a known key from OPTIONAL_ENV_VARS
         known_key = next(iter(OPTIONAL_ENV_VARS.keys()))
-        with patch("hermes_cli.config.get_env_path", return_value=env_file):
+        with patch("hermes_agent.cli.config.get_env_path", return_value=env_file):
             os.environ[known_key] = "stale_value"
             count = reload_env()
             assert known_key not in os.environ
@@ -65,7 +65,7 @@ class TestReloadEnv:
         """reload_env() preserves non-Hermes env vars even when absent from .env."""
         env_file = tmp_path / ".env"
         env_file.write_text("")
-        with patch("hermes_cli.config.get_env_path", return_value=env_file):
+        with patch("hermes_agent.cli.config.get_env_path", return_value=env_file):
             os.environ["MY_CUSTOM_UNRELATED_VAR"] = "keep_me"
             reload_env()
             assert os.environ.get("MY_CUSTOM_UNRELATED_VAR") == "keep_me"
@@ -108,9 +108,9 @@ class TestWebServerEndpoints:
         except ImportError:
             pytest.skip("fastapi/starlette not installed")
 
-        import hermes_state
-        from hermes_constants import get_hermes_home
-        from hermes_cli.web_server import app, _SESSION_TOKEN
+        import hermes_agent.state
+        from hermes_agent.constants import get_hermes_home
+        from hermes_agent.cli.web_server import app, _SESSION_TOKEN
 
         monkeypatch.setattr(hermes_state, "DEFAULT_DB_PATH", get_hermes_home() / "state.db")
 
@@ -126,8 +126,8 @@ class TestWebServerEndpoints:
         assert "active_sessions" in data
 
     def test_get_status_filters_unconfigured_gateway_platforms(self, monkeypatch):
-        import gateway.config as gateway_config
-        import hermes_cli.web_server as web_server
+        import hermes_agent.gateway.config as gateway_config
+        import hermes_agent.cli.web_server as web_server
 
         class _Platform:
             def __init__(self, value):
@@ -162,8 +162,8 @@ class TestWebServerEndpoints:
         }
 
     def test_get_status_hides_stale_platforms_when_gateway_not_running(self, monkeypatch):
-        import gateway.config as gateway_config
-        import hermes_cli.web_server as web_server
+        import hermes_agent.gateway.config as gateway_config
+        import hermes_agent.cli.web_server as web_server
 
         class _GatewayConfig:
             def get_connected_platforms(self):
@@ -220,8 +220,8 @@ class TestWebServerEndpoints:
 
     def test_reveal_env_var(self, tmp_path):
         """POST /api/env/reveal should return the real unredacted value."""
-        from hermes_cli.config import save_env_value
-        from hermes_cli.web_server import _SESSION_TOKEN
+        from hermes_agent.cli.config import save_env_value
+        from hermes_agent.cli.web_server import _SESSION_TOKEN
         save_env_value("TEST_REVEAL_KEY", "super-secret-value-12345")
         resp = self.client.post(
             "/api/env/reveal",
@@ -235,7 +235,7 @@ class TestWebServerEndpoints:
 
     def test_reveal_env_var_not_found(self):
         """POST /api/env/reveal should 404 for unknown keys."""
-        from hermes_cli.web_server import _SESSION_TOKEN
+        from hermes_agent.cli.web_server import _SESSION_TOKEN
         resp = self.client.post(
             "/api/env/reveal",
             json={"key": "NONEXISTENT_KEY_XYZ"},
@@ -246,8 +246,8 @@ class TestWebServerEndpoints:
     def test_reveal_env_var_no_token(self, tmp_path):
         """POST /api/env/reveal without token should return 401."""
         from starlette.testclient import TestClient
-        from hermes_cli.web_server import app
-        from hermes_cli.config import save_env_value
+        from hermes_agent.cli.web_server import app
+        from hermes_agent.cli.config import save_env_value
         save_env_value("TEST_REVEAL_NOAUTH", "secret-value")
         # Use a fresh client WITHOUT the Authorization header
         unauth_client = TestClient(app)
@@ -259,7 +259,7 @@ class TestWebServerEndpoints:
 
     def test_reveal_env_var_bad_token(self, tmp_path):
         """POST /api/env/reveal with wrong token should return 401."""
-        from hermes_cli.config import save_env_value
+        from hermes_agent.cli.config import save_env_value
         save_env_value("TEST_REVEAL_BADAUTH", "secret-value")
         resp = self.client.post(
             "/api/env/reveal",
@@ -284,7 +284,7 @@ class TestWebServerEndpoints:
     def test_unauthenticated_api_blocked(self):
         """API requests without the session token should be rejected."""
         from starlette.testclient import TestClient
-        from hermes_cli.web_server import app
+        from hermes_agent.cli.web_server import app
         # Create a client WITHOUT the Authorization header
         unauth_client = TestClient(app)
         resp = unauth_client.get("/api/env")
@@ -320,18 +320,18 @@ class TestWebServerEndpoints:
 
 class TestBuildSchemaFromConfig:
     def test_produces_expected_field_count(self):
-        from hermes_cli.web_server import CONFIG_SCHEMA
+        from hermes_agent.cli.web_server import CONFIG_SCHEMA
         # DEFAULT_CONFIG has ~150+ leaf fields
         assert len(CONFIG_SCHEMA) > 100
 
     def test_schema_entries_have_required_fields(self):
-        from hermes_cli.web_server import CONFIG_SCHEMA
+        from hermes_agent.cli.web_server import CONFIG_SCHEMA
         for key, entry in list(CONFIG_SCHEMA.items())[:10]:
             assert "type" in entry, f"Missing type for {key}"
             assert "category" in entry, f"Missing category for {key}"
 
     def test_overrides_applied(self):
-        from hermes_cli.web_server import CONFIG_SCHEMA
+        from hermes_agent.cli.web_server import CONFIG_SCHEMA
         # terminal.backend should be a select with options
         if "terminal.backend" in CONFIG_SCHEMA:
             entry = CONFIG_SCHEMA["terminal.backend"]
@@ -340,7 +340,7 @@ class TestBuildSchemaFromConfig:
             assert "local" in entry["options"]
 
     def test_empty_prefix_produces_correct_keys(self):
-        from hermes_cli.web_server import _build_schema_from_config
+        from hermes_agent.cli.web_server import _build_schema_from_config
         test_config = {"model": "test", "nested": {"key": "val"}}
         schema = _build_schema_from_config(test_config)
         assert "model" in schema
@@ -348,18 +348,18 @@ class TestBuildSchemaFromConfig:
 
     def test_top_level_scalars_get_general_category(self):
         """Top-level scalar fields should be in 'general' category."""
-        from hermes_cli.web_server import CONFIG_SCHEMA
+        from hermes_agent.cli.web_server import CONFIG_SCHEMA
         assert CONFIG_SCHEMA["model"]["category"] == "general"
 
     def test_nested_keys_get_parent_category(self):
         """Nested fields should use the top-level parent as their category."""
-        from hermes_cli.web_server import CONFIG_SCHEMA
-        if "agent.max_turns" in CONFIG_SCHEMA:
-            assert CONFIG_SCHEMA["agent.max_turns"]["category"] == "agent"
+        from hermes_agent.cli.web_server import CONFIG_SCHEMA
+        if "hermes_agent.agent.max_turns" in CONFIG_SCHEMA:
+            assert CONFIG_SCHEMA["hermes_agent.agent.max_turns"]["category"] == "agent"
 
     def test_category_merge_applied(self):
         """Small categories should be merged into larger ones."""
-        from hermes_cli.web_server import CONFIG_SCHEMA
+        from hermes_agent.cli.web_server import CONFIG_SCHEMA
         categories = {e["category"] for e in CONFIG_SCHEMA.values()}
         # These should be merged away
         assert "privacy" not in categories  # merged into security
@@ -367,7 +367,7 @@ class TestBuildSchemaFromConfig:
 
     def test_no_single_field_categories(self):
         """After merging, no category should have just 1 field."""
-        from hermes_cli.web_server import CONFIG_SCHEMA
+        from hermes_agent.cli.web_server import CONFIG_SCHEMA
         from collections import Counter
         cats = Counter(e["category"] for e in CONFIG_SCHEMA.values())
         for cat, count in cats.items():
@@ -388,7 +388,7 @@ class TestConfigRoundTrip:
             from starlette.testclient import TestClient
         except ImportError:
             pytest.skip("fastapi/starlette not installed")
-        from hermes_cli.web_server import app, _SESSION_TOKEN
+        from hermes_agent.cli.web_server import app, _SESSION_TOKEN
         self.client = TestClient(app)
         self.client.headers["Authorization"] = f"Bearer {_SESSION_TOKEN}"
 
@@ -406,7 +406,7 @@ class TestConfigRoundTrip:
 
     def test_round_trip_preserves_model_subkeys(self):
         """Save and reload should not lose model.provider, model.base_url, etc."""
-        from hermes_cli.config import load_config, save_config
+        from hermes_agent.cli.config import load_config, save_config
 
         # Set up a config with model as a dict (the common user config form)
         save_config({
@@ -435,7 +435,7 @@ class TestConfigRoundTrip:
 
     def test_edit_model_name_preserved(self):
         """Changing the model string should update model.default on disk."""
-        from hermes_cli.config import load_config
+        from hermes_agent.cli.config import load_config
 
         web_config = self.client.get("/api/config").json()
         original_model = web_config["model"]
@@ -456,7 +456,7 @@ class TestConfigRoundTrip:
 
     def test_edit_nested_value(self):
         """Editing a nested config value should persist correctly."""
-        from hermes_cli.config import load_config
+        from hermes_agent.cli.config import load_config
 
         web_config = self.client.get("/api/config").json()
         original_turns = web_config.get("agent", {}).get("max_turns")
@@ -522,9 +522,9 @@ class TestNewEndpoints:
         except ImportError:
             pytest.skip("fastapi/starlette not installed")
 
-        import hermes_state
-        from hermes_constants import get_hermes_home
-        from hermes_cli.web_server import app, _SESSION_TOKEN
+        import hermes_agent.state
+        from hermes_agent.constants import get_hermes_home
+        from hermes_agent.cli.web_server import app, _SESSION_TOKEN
 
         monkeypatch.setattr(hermes_state, "DEFAULT_DB_PATH", get_hermes_home() / "state.db")
 
@@ -562,9 +562,9 @@ class TestNewEndpoints:
             assert "enabled" in skills[0]
 
     def test_skills_list_includes_disabled_skills(self, monkeypatch):
-        import tools.skills_tool as skills_tool
-        import hermes_cli.skills_config as skills_config
-        import hermes_cli.web_server as web_server
+        import hermes_agent.tools.skills.tool as skills_tool
+        import hermes_agent.cli.skills_config as skills_config
+        import hermes_agent.cli.web_server as web_server
 
         def _fake_find_all_skills(*, skip_disabled=False):
             if skip_disabled:
@@ -609,9 +609,9 @@ class TestNewEndpoints:
             assert "enabled" in toolsets[0]
 
     def test_toolsets_list_matches_cli_enabled_state(self, monkeypatch):
-        import hermes_cli.tools_config as tools_config
-        import toolsets as toolsets_module
-        import hermes_cli.web_server as web_server
+        import hermes_agent.cli.tools_config as tools_config
+        import hermes_agent.tools.toolsets as toolsets_module
+        import hermes_agent.cli.web_server as web_server
 
         monkeypatch.setattr(
             tools_config,
@@ -717,7 +717,7 @@ class TestNewEndpoints:
         }
 
     def test_analytics_usage_includes_skill_breakdown(self):
-        from hermes_state import SessionDB
+        from hermes_agent.state import SessionDB
 
         db = SessionDB()
         try:
@@ -794,7 +794,7 @@ class TestModelContextLength:
 
     def test_normalize_extracts_context_length_from_dict(self):
         """normalize should surface context_length from model dict."""
-        from hermes_cli.web_server import _normalize_config_for_web
+        from hermes_agent.cli.web_server import _normalize_config_for_web
 
         cfg = {
             "model": {
@@ -809,7 +809,7 @@ class TestModelContextLength:
 
     def test_normalize_bare_string_model_yields_zero(self):
         """normalize should set model_context_length=0 for bare string model."""
-        from hermes_cli.web_server import _normalize_config_for_web
+        from hermes_agent.cli.web_server import _normalize_config_for_web
 
         result = _normalize_config_for_web({"model": "anthropic/claude-sonnet-4"})
         assert result["model"] == "anthropic/claude-sonnet-4"
@@ -817,7 +817,7 @@ class TestModelContextLength:
 
     def test_normalize_dict_without_context_length_yields_zero(self):
         """normalize should default to 0 when model dict has no context_length."""
-        from hermes_cli.web_server import _normalize_config_for_web
+        from hermes_agent.cli.web_server import _normalize_config_for_web
 
         cfg = {"model": {"default": "test/model", "provider": "openrouter"}}
         result = _normalize_config_for_web(cfg)
@@ -825,7 +825,7 @@ class TestModelContextLength:
 
     def test_normalize_non_int_context_length_yields_zero(self):
         """normalize should coerce non-int context_length to 0."""
-        from hermes_cli.web_server import _normalize_config_for_web
+        from hermes_agent.cli.web_server import _normalize_config_for_web
 
         cfg = {"model": {"default": "test/model", "context_length": "invalid"}}
         result = _normalize_config_for_web(cfg)
@@ -833,8 +833,8 @@ class TestModelContextLength:
 
     def test_denormalize_writes_context_length_into_model_dict(self):
         """denormalize should write model_context_length back into model dict."""
-        from hermes_cli.web_server import _denormalize_config_from_web
-        from hermes_cli.config import save_config
+        from hermes_agent.cli.web_server import _denormalize_config_from_web
+        from hermes_agent.cli.config import save_config
 
         # Set up disk config with model as a dict
         save_config({
@@ -851,8 +851,8 @@ class TestModelContextLength:
 
     def test_denormalize_zero_removes_context_length(self):
         """denormalize with model_context_length=0 should remove context_length key."""
-        from hermes_cli.web_server import _denormalize_config_from_web
-        from hermes_cli.config import save_config
+        from hermes_agent.cli.web_server import _denormalize_config_from_web
+        from hermes_agent.cli.config import save_config
 
         save_config({
             "model": {
@@ -871,8 +871,8 @@ class TestModelContextLength:
 
     def test_denormalize_upgrades_bare_string_to_dict(self):
         """denormalize should upgrade bare string model to dict when context_length set."""
-        from hermes_cli.web_server import _denormalize_config_from_web
-        from hermes_cli.config import save_config
+        from hermes_agent.cli.web_server import _denormalize_config_from_web
+        from hermes_agent.cli.config import save_config
 
         # Disk has model as bare string
         save_config({"model": "anthropic/claude-sonnet-4"})
@@ -887,8 +887,8 @@ class TestModelContextLength:
 
     def test_denormalize_bare_string_stays_string_when_zero(self):
         """denormalize should keep bare string model as string when context_length=0."""
-        from hermes_cli.web_server import _denormalize_config_from_web
-        from hermes_cli.config import save_config
+        from hermes_agent.cli.web_server import _denormalize_config_from_web
+        from hermes_agent.cli.config import save_config
 
         save_config({"model": "anthropic/claude-sonnet-4"})
 
@@ -900,8 +900,8 @@ class TestModelContextLength:
 
     def test_denormalize_coerces_string_context_length(self):
         """denormalize should handle string model_context_length from frontend."""
-        from hermes_cli.web_server import _denormalize_config_from_web
-        from hermes_cli.config import save_config
+        from hermes_agent.cli.web_server import _denormalize_config_from_web
+        from hermes_agent.cli.config import save_config
 
         save_config({
             "model": {"default": "test/model", "provider": "openrouter"}
@@ -919,18 +919,18 @@ class TestModelContextLengthSchema:
     """Tests for model_context_length placement in CONFIG_SCHEMA."""
 
     def test_schema_has_model_context_length(self):
-        from hermes_cli.web_server import CONFIG_SCHEMA
+        from hermes_agent.cli.web_server import CONFIG_SCHEMA
         assert "model_context_length" in CONFIG_SCHEMA
 
     def test_schema_model_context_length_after_model(self):
         """model_context_length should appear immediately after model in schema."""
-        from hermes_cli.web_server import CONFIG_SCHEMA
+        from hermes_agent.cli.web_server import CONFIG_SCHEMA
         keys = list(CONFIG_SCHEMA.keys())
         model_idx = keys.index("model")
         assert keys[model_idx + 1] == "model_context_length"
 
     def test_schema_model_context_length_is_number(self):
-        from hermes_cli.web_server import CONFIG_SCHEMA
+        from hermes_agent.cli.web_server import CONFIG_SCHEMA
         entry = CONFIG_SCHEMA["model_context_length"]
         assert entry["type"] == "number"
         assert "category" in entry
@@ -945,7 +945,7 @@ class TestModelInfoEndpoint:
             from starlette.testclient import TestClient
         except ImportError:
             pytest.skip("fastapi/starlette not installed")
-        from hermes_cli.web_server import app
+        from hermes_agent.cli.web_server import app
         self.client = TestClient(app)
 
     def test_model_info_returns_200(self):
@@ -960,7 +960,7 @@ class TestModelInfoEndpoint:
         assert "capabilities" in data
 
     def test_model_info_with_dict_config(self, monkeypatch):
-        import hermes_cli.web_server as ws
+        import hermes_agent.cli.web_server as ws
 
         monkeypatch.setattr(ws, "load_config", lambda: {
             "model": {
@@ -970,7 +970,7 @@ class TestModelInfoEndpoint:
             }
         })
 
-        with patch("agent.model_metadata.get_model_context_length", return_value=200000):
+        with patch("hermes_agent.providers.metadata.get_model_context_length", return_value=200000):
             resp = self.client.get("/api/model/info")
 
         data = resp.json()
@@ -981,13 +981,13 @@ class TestModelInfoEndpoint:
         assert data["effective_context_length"] == 100000  # override wins
 
     def test_model_info_auto_detect_when_no_override(self, monkeypatch):
-        import hermes_cli.web_server as ws
+        import hermes_agent.cli.web_server as ws
 
         monkeypatch.setattr(ws, "load_config", lambda: {
             "model": {"default": "anthropic/claude-opus-4.6", "provider": "openrouter"}
         })
 
-        with patch("agent.model_metadata.get_model_context_length", return_value=200000):
+        with patch("hermes_agent.providers.metadata.get_model_context_length", return_value=200000):
             resp = self.client.get("/api/model/info")
 
         data = resp.json()
@@ -996,7 +996,7 @@ class TestModelInfoEndpoint:
         assert data["effective_context_length"] == 200000  # auto wins
 
     def test_model_info_empty_model(self, monkeypatch):
-        import hermes_cli.web_server as ws
+        import hermes_agent.cli.web_server as ws
 
         monkeypatch.setattr(ws, "load_config", lambda: {"model": ""})
 
@@ -1006,13 +1006,13 @@ class TestModelInfoEndpoint:
         assert data["effective_context_length"] == 0
 
     def test_model_info_bare_string_model(self, monkeypatch):
-        import hermes_cli.web_server as ws
+        import hermes_agent.cli.web_server as ws
 
         monkeypatch.setattr(ws, "load_config", lambda: {
             "model": "anthropic/claude-sonnet-4"
         })
 
-        with patch("agent.model_metadata.get_model_context_length", return_value=200000):
+        with patch("hermes_agent.providers.metadata.get_model_context_length", return_value=200000):
             resp = self.client.get("/api/model/info")
 
         data = resp.json()
@@ -1022,7 +1022,7 @@ class TestModelInfoEndpoint:
         assert data["effective_context_length"] == 200000
 
     def test_model_info_capabilities(self, monkeypatch):
-        import hermes_cli.web_server as ws
+        import hermes_agent.cli.web_server as ws
 
         monkeypatch.setattr(ws, "load_config", lambda: {
             "model": {"default": "anthropic/claude-opus-4.6", "provider": "openrouter"}
@@ -1036,8 +1036,8 @@ class TestModelInfoEndpoint:
         mock_caps.max_output_tokens = 32000
         mock_caps.model_family = "claude-opus"
 
-        with patch("agent.model_metadata.get_model_context_length", return_value=200000), \
-             patch("agent.models_dev.get_model_capabilities", return_value=mock_caps):
+        with patch("hermes_agent.providers.metadata.get_model_context_length", return_value=200000), \
+             patch("hermes_agent.providers.metadata_dev.get_model_capabilities", return_value=mock_caps):
             resp = self.client.get("/api/model/info")
 
         caps = resp.json()["capabilities"]
@@ -1049,13 +1049,13 @@ class TestModelInfoEndpoint:
 
     def test_model_info_graceful_on_metadata_error(self, monkeypatch):
         """Endpoint should return zeros on import/resolution errors, not 500."""
-        import hermes_cli.web_server as ws
+        import hermes_agent.cli.web_server as ws
 
         monkeypatch.setattr(ws, "load_config", lambda: {
             "model": "some/obscure-model"
         })
 
-        with patch("agent.model_metadata.get_model_context_length", side_effect=Exception("boom")):
+        with patch("hermes_agent.providers.metadata.get_model_context_length", side_effect=Exception("boom")):
             resp = self.client.get("/api/model/info")
 
         assert resp.status_code == 200
@@ -1073,7 +1073,7 @@ class TestProbeGatewayHealth:
 
     def test_returns_false_when_no_url_configured(self, monkeypatch):
         """When GATEWAY_HEALTH_URL is unset, the probe returns (False, None)."""
-        import hermes_cli.web_server as ws
+        import hermes_agent.cli.web_server as ws
         monkeypatch.setattr(ws, "_GATEWAY_HEALTH_URL", None)
         alive, body = ws._probe_gateway_health()
         assert alive is False
@@ -1081,7 +1081,7 @@ class TestProbeGatewayHealth:
 
     def test_normalizes_url_with_health_suffix(self, monkeypatch):
         """If the user sets the URL to include /health, it's stripped to base."""
-        import hermes_cli.web_server as ws
+        import hermes_agent.cli.web_server as ws
         monkeypatch.setattr(ws, "_GATEWAY_HEALTH_URL", "http://gw:8642/health")
         monkeypatch.setattr(ws, "_GATEWAY_HEALTH_TIMEOUT", 1)
         # Both paths should fail (no server), but we verify they were constructed
@@ -1101,7 +1101,7 @@ class TestProbeGatewayHealth:
 
     def test_normalizes_url_with_health_detailed_suffix(self, monkeypatch):
         """If the user sets the URL to include /health/detailed, it's stripped to base."""
-        import hermes_cli.web_server as ws
+        import hermes_agent.cli.web_server as ws
         monkeypatch.setattr(ws, "_GATEWAY_HEALTH_URL", "http://gw:8642/health/detailed")
         monkeypatch.setattr(ws, "_GATEWAY_HEALTH_TIMEOUT", 1)
         calls = []
@@ -1117,7 +1117,7 @@ class TestProbeGatewayHealth:
 
     def test_successful_detailed_probe(self, monkeypatch):
         """Successful /health/detailed probe returns (True, body_dict)."""
-        import hermes_cli.web_server as ws
+        import hermes_agent.cli.web_server as ws
         monkeypatch.setattr(ws, "_GATEWAY_HEALTH_URL", "http://gw:8642")
         monkeypatch.setattr(ws, "_GATEWAY_HEALTH_TIMEOUT", 1)
 
@@ -1141,7 +1141,7 @@ class TestProbeGatewayHealth:
 
     def test_detailed_fails_falls_back_to_simple_health(self, monkeypatch):
         """If /health/detailed fails, falls back to /health."""
-        import hermes_cli.web_server as ws
+        import hermes_agent.cli.web_server as ws
         monkeypatch.setattr(ws, "_GATEWAY_HEALTH_URL", "http://gw:8642")
         monkeypatch.setattr(ws, "_GATEWAY_HEALTH_TIMEOUT", 1)
 
@@ -1175,13 +1175,13 @@ class TestStatusRemoteGateway:
         except ImportError:
             pytest.skip("fastapi/starlette not installed")
 
-        from hermes_cli.web_server import app, _SESSION_TOKEN
+        from hermes_agent.cli.web_server import app, _SESSION_TOKEN
         self.client = TestClient(app)
         self.client.headers["Authorization"] = f"Bearer {_SESSION_TOKEN}"
 
     def test_status_falls_back_to_remote_probe(self, monkeypatch):
         """When local PID check fails and remote probe succeeds, gateway shows running."""
-        import hermes_cli.web_server as ws
+        import hermes_agent.cli.web_server as ws
 
         monkeypatch.setattr(ws, "get_running_pid", lambda: None)
         monkeypatch.setattr(ws, "read_runtime_status", lambda: None)
@@ -1203,7 +1203,7 @@ class TestStatusRemoteGateway:
 
     def test_status_remote_probe_not_attempted_when_local_pid_found(self, monkeypatch):
         """When local PID check succeeds, the remote probe is never called."""
-        import hermes_cli.web_server as ws
+        import hermes_agent.cli.web_server as ws
 
         monkeypatch.setattr(ws, "get_running_pid", lambda: 1234)
         monkeypatch.setattr(ws, "read_runtime_status", lambda: {
@@ -1226,7 +1226,7 @@ class TestStatusRemoteGateway:
 
     def test_status_remote_probe_not_attempted_when_no_url(self, monkeypatch):
         """When GATEWAY_HEALTH_URL is unset, no probe is attempted."""
-        import hermes_cli.web_server as ws
+        import hermes_agent.cli.web_server as ws
 
         monkeypatch.setattr(ws, "get_running_pid", lambda: None)
         monkeypatch.setattr(ws, "read_runtime_status", lambda: None)
@@ -1240,7 +1240,7 @@ class TestStatusRemoteGateway:
 
     def test_status_remote_running_null_pid(self, monkeypatch):
         """Remote gateway running but PID not in response — pid should be None."""
-        import hermes_cli.web_server as ws
+        import hermes_agent.cli.web_server as ws
 
         monkeypatch.setattr(ws, "get_running_pid", lambda: None)
         monkeypatch.setattr(ws, "read_runtime_status", lambda: None)

@@ -25,7 +25,7 @@ class TestThreadLocalApprovalCallback:
     concurrent ACP sessions don't stomp on each other's handlers."""
 
     def test_set_and_get_in_same_thread(self):
-        from tools.terminal_tool import (
+        from hermes_agent.tools.terminal import (
             set_approval_callback,
             _get_approval_callback,
         )
@@ -36,7 +36,7 @@ class TestThreadLocalApprovalCallback:
 
     def test_callback_not_visible_in_different_thread(self):
         """Thread A's callback is NOT visible to Thread B."""
-        from tools.terminal_tool import (
+        from hermes_agent.tools.terminal import (
             set_approval_callback,
             _get_approval_callback,
         )
@@ -74,7 +74,7 @@ class TestThreadLocalApprovalCallback:
     def test_main_thread_callback_not_leaked_to_worker(self):
         """A callback set in the main thread does NOT leak into a
         freshly-spawned worker thread."""
-        from tools.terminal_tool import (
+        from hermes_agent.tools.terminal import (
             set_approval_callback,
             _get_approval_callback,
         )
@@ -98,7 +98,7 @@ class TestThreadLocalApprovalCallback:
 
     def test_sudo_password_callback_also_thread_local(self):
         """Same protection applies to the sudo password callback."""
-        from tools.terminal_tool import (
+        from hermes_agent.tools.terminal import (
             set_sudo_password_callback,
             _get_sudo_password_callback,
         )
@@ -138,7 +138,7 @@ class TestAcpExecAskGate:
         monkeypatch.delenv("HERMES_EXEC_ASK", raising=False)
         monkeypatch.delenv("HERMES_YOLO_MODE", raising=False)
 
-        from tools.approval import check_all_command_guards
+        from hermes_agent.tools.security.approval import check_all_command_guards
 
         called_with = []
 

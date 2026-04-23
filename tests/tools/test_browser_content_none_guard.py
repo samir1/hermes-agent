@@ -30,9 +30,9 @@ class TestExtractRelevantContentNoneGuard:
 
     def test_none_content_falls_back_to_truncated(self):
         """When LLM returns None content, should fall back to truncated snapshot."""
-        with patch("tools.browser_tool.call_llm", return_value=_make_response(None)), \
-             patch("tools.browser_tool._get_extraction_model", return_value="test-model"):
-            from tools.browser_tool import _extract_relevant_content
+        with patch("hermes_agent.tools.browser.tool.call_llm", return_value=_make_response(None)), \
+             patch("hermes_agent.tools.browser.tool._get_extraction_model", return_value="test-model"):
+            from hermes_agent.tools.browser.tool import _extract_relevant_content
             result = _extract_relevant_content("This is a long snapshot text", "find the button")
 
         assert result is not None
@@ -41,18 +41,18 @@ class TestExtractRelevantContentNoneGuard:
 
     def test_normal_content_returned(self):
         """Normal string content should pass through."""
-        with patch("tools.browser_tool.call_llm", return_value=_make_response("Extracted content here")), \
-             patch("tools.browser_tool._get_extraction_model", return_value="test-model"):
-            from tools.browser_tool import _extract_relevant_content
+        with patch("hermes_agent.tools.browser.tool.call_llm", return_value=_make_response("Extracted content here")), \
+             patch("hermes_agent.tools.browser.tool._get_extraction_model", return_value="test-model"):
+            from hermes_agent.tools.browser.tool import _extract_relevant_content
             result = _extract_relevant_content("snapshot text", "task")
 
         assert result == "Extracted content here"
 
     def test_empty_string_content_falls_back(self):
         """Empty string content should also fall back to truncated."""
-        with patch("tools.browser_tool.call_llm", return_value=_make_response("   ")), \
-             patch("tools.browser_tool._get_extraction_model", return_value="test-model"):
-            from tools.browser_tool import _extract_relevant_content
+        with patch("hermes_agent.tools.browser.tool.call_llm", return_value=_make_response("   ")), \
+             patch("hermes_agent.tools.browser.tool._get_extraction_model", return_value="test-model"):
+            from hermes_agent.tools.browser.tool import _extract_relevant_content
             result = _extract_relevant_content("This is a long snapshot text", "task")
 
         assert result is not None

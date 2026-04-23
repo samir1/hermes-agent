@@ -102,7 +102,7 @@ def _session(agent=None, **extra):
 
 
 def test_config_set_yolo_toggles_session_scope():
-    from tools.approval import clear_session, is_session_yolo_enabled
+    from hermes_agent.tools.security.approval import clear_session, is_session_yolo_enabled
 
     server._sessions["sid"] = _session()
     try:
@@ -131,7 +131,7 @@ def test_enable_gateway_prompts_sets_gateway_env(monkeypatch):
 
 
 def test_setup_status_reports_provider_config(monkeypatch):
-    monkeypatch.setattr("hermes_cli.main._has_any_provider_configured", lambda: False)
+    monkeypatch.setattr("hermes_agent.cli.main._has_any_provider_configured", lambda: False)
 
     resp = server.handle_request({"id": "1", "method": "setup.status", "params": {}})
 
@@ -215,10 +215,10 @@ def test_config_set_model_global_persists(monkeypatch):
         return result
 
     server._sessions["sid"] = _session(agent=_Agent())
-    monkeypatch.setattr("hermes_cli.model_switch.switch_model", _switch_model)
+    monkeypatch.setattr("hermes_agent.cli.models.switch.switch_model", _switch_model)
     monkeypatch.setattr(server, "_restart_slash_worker", lambda session: None)
     monkeypatch.setattr(server, "_emit", lambda *args, **kwargs: None)
-    monkeypatch.setattr("hermes_cli.config.save_config", lambda cfg: saved.update(cfg))
+    monkeypatch.setattr("hermes_agent.cli.config.save_config", lambda cfg: saved.update(cfg))
 
     resp = server.handle_request(
         {"id": "1", "method": "config.set", "params": {"session_id": "sid", "key": "model", "value": "anthropic/claude-sonnet-4.6 --global"}}
@@ -262,7 +262,7 @@ def test_config_set_model_syncs_inference_provider_env(monkeypatch):
 
     server._sessions["sid"] = _session(agent=_Agent())
     monkeypatch.setenv("HERMES_INFERENCE_PROVIDER", "openrouter")
-    monkeypatch.setattr("hermes_cli.model_switch.switch_model", lambda **_kwargs: result)
+    monkeypatch.setattr("hermes_agent.cli.models.switch.switch_model", lambda **_kwargs: result)
     monkeypatch.setattr(server, "_restart_slash_worker", lambda session: None)
     monkeypatch.setattr(server, "_emit", lambda *args, **kwargs: None)
 
@@ -323,7 +323,7 @@ def test_session_compress_uses_compress_helper(monkeypatch):
 
 
 def test_prompt_submit_sets_approval_session_key(monkeypatch):
-    from tools.approval import get_current_session_key
+    from hermes_agent.tools.security.approval import get_current_session_key
 
     captured = {}
 
@@ -370,11 +370,11 @@ def test_prompt_submit_expands_context_refs(monkeypatch):
         def start(self):
             self._target()
 
-    fake_ctx = types.ModuleType("agent.context_references")
+    fake_ctx = types.ModuleType("hermes_agent.agent.context.references")
     fake_ctx.preprocess_context_references = lambda message, **kwargs: types.SimpleNamespace(
         blocked=False, message="expanded prompt", warnings=[], references=[], injected_tokens=0
     )
-    fake_meta = types.ModuleType("agent.model_metadata")
+    fake_meta = types.ModuleType("hermes_agent.providers.metadata")
     fake_meta.get_model_context_length = lambda *args, **kwargs: 100000
 
     server._sessions["sid"] = _session(agent=_Agent())
@@ -382,8 +382,8 @@ def test_prompt_submit_expands_context_refs(monkeypatch):
     monkeypatch.setattr(server, "_emit", lambda *args, **kwargs: None)
     monkeypatch.setattr(server, "make_stream_renderer", lambda cols: None)
     monkeypatch.setattr(server, "render_message", lambda raw, cols: None)
-    monkeypatch.setitem(sys.modules, "agent.context_references", fake_ctx)
-    monkeypatch.setitem(sys.modules, "agent.model_metadata", fake_meta)
+    monkeypatch.setitem(sys.modules, "hermes_agent.agent.context.references", fake_ctx)
+    monkeypatch.setitem(sys.modules, "hermes_agent.providers.metadata", fake_meta)
 
     server.handle_request({"id": "1", "method": "prompt.submit", "params": {"session_id": "sid", "text": "@diff"}})
 
@@ -402,7 +402,7 @@ def test_image_attach_appends_local_image(monkeypatch):
     fake_cli._resolve_attachment_path = lambda raw: Path("/tmp/cat.png")
 
     server._sessions["sid"] = _session()
-    monkeypatch.setitem(sys.modules, "cli", fake_cli)
+    monkeypatch.setitem(sys.modules, "hermes_agent.cli.repl", fake_cli)
 
     resp = server.handle_request({"id": "1", "method": "image.attach", "params": {"session_id": "sid", "path": "/tmp/cat.png"}})
 
@@ -424,7 +424,7 @@ def test_image_attach_accepts_unquoted_screenshot_path_with_spaces(monkeypatch):
     fake_cli._resolve_attachment_path = lambda raw: None
 
     server._sessions["sid"] = _session()
-    monkeypatch.setitem(sys.modules, "cli", fake_cli)
+    monkeypatch.setitem(sys.modules, "hermes_agent.cli.repl", fake_cli)
 
     resp = server.handle_request(
         {"id": "1", "method": "image.attach", "params": {"session_id": "sid", "path": str(screenshot)}}
@@ -473,15 +473,15 @@ def test_command_dispatch_exec_nonzero_surfaces_error(monkeypatch):
 
 
 def test_plugins_list_surfaces_loader_error(monkeypatch):
-    with patch("hermes_cli.plugins.get_plugin_manager", side_effect=Exception("boom")):
-        resp = server.handle_request({"id": "1", "method": "plugins.list", "params": {}})
+    with patch("hermes_agent.cli.plugins.get_plugin_manager", side_effect=Exception("boom")):
+        resp = server.handle_request({"id": "1", "method": "hermes_agent.plugins.list", "params": {}})
 
     assert "error" in resp
     assert "boom" in resp["error"]["message"]
 
 
 def test_complete_slash_surfaces_completer_error(monkeypatch):
-    with patch("hermes_cli.commands.SlashCommandCompleter", side_effect=Exception("no completer")):
+    with patch("hermes_agent.cli.commands.SlashCommandCompleter", side_effect=Exception("no completer")):
         resp = server.handle_request({"id": "1", "method": "complete.slash", "params": {"text": "/mo"}})
 
     assert "error" in resp
@@ -497,7 +497,7 @@ def test_input_detect_drop_attaches_image(monkeypatch):
     }
 
     server._sessions["sid"] = _session()
-    monkeypatch.setitem(sys.modules, "cli", fake_cli)
+    monkeypatch.setitem(sys.modules, "hermes_agent.cli.repl", fake_cli)
 
     resp = server.handle_request(
         {"id": "1", "method": "input.detect_drop", "params": {"session_id": "sid", "text": "/tmp/cat.png"}}
@@ -611,9 +611,9 @@ def test_session_info_includes_mcp_servers(monkeypatch):
         {"name": "filesystem", "transport": "stdio", "tools": 4, "connected": True},
         {"name": "broken", "transport": "stdio", "tools": 0, "connected": False},
     ]
-    fake_mod = types.ModuleType("tools.mcp_tool")
+    fake_mod = types.ModuleType("hermes_agent.tools.mcp.tool")
     fake_mod.get_mcp_status = lambda: fake_status
-    monkeypatch.setitem(sys.modules, "tools.mcp_tool", fake_mod)
+    monkeypatch.setitem(sys.modules, "hermes_agent.tools.mcp.tool", fake_mod)
 
     info = server._session_info(types.SimpleNamespace(tools=[], model=""))
 
@@ -1075,7 +1075,7 @@ def test_session_create_close_race_does_not_orphan_worker(monkeypatch):
     monkeypatch.setattr(server, "_emit", lambda *a, **kw: None)
 
     # Shim register/unregister to observe leaks
-    import tools.approval as _approval
+    import hermes_agent.tools.security.approval as _approval
     monkeypatch.setattr(_approval, "register_gateway_notify",
                         lambda key, cb: None)
     monkeypatch.setattr(_approval, "unregister_gateway_notify",
@@ -1152,7 +1152,7 @@ def test_session_create_no_race_keeps_worker_alive(monkeypatch):
     monkeypatch.setattr(server, "_wire_callbacks", lambda _sid: None)
     monkeypatch.setattr(server, "_emit", lambda *a, **kw: None)
 
-    import tools.approval as _approval
+    import hermes_agent.tools.security.approval as _approval
     monkeypatch.setattr(_approval, "register_gateway_notify", lambda key, cb: None)
     monkeypatch.setattr(_approval, "unregister_gateway_notify",
                         lambda key: unregistered_keys.append(key))
@@ -1217,13 +1217,13 @@ def test_model_options_does_not_overwrite_curated_models(monkeypatch):
     )
 
     with patch(
-        "hermes_cli.model_switch.list_authenticated_providers",
+        "hermes_agent.cli.models.switch.list_authenticated_providers",
         return_value=curated_providers,
     ) as listing:
         # If provider_model_ids gets called at all, the handler is still
         # overwriting curated with live — that's the regression we're
         # guarding against.
-        with patch("hermes_cli.models.provider_model_ids") as live_fetch:
+        with patch("hermes_agent.cli.models.models.provider_model_ids") as live_fetch:
             resp = server._methods["model.options"](99, {"session_id": ""})
 
     assert "result" in resp, resp
@@ -1250,7 +1250,7 @@ def test_model_options_propagates_list_exception(monkeypatch):
         lambda: {"providers": {}, "custom_providers": []},
     )
     with patch(
-        "hermes_cli.model_switch.list_authenticated_providers",
+        "hermes_agent.cli.models.switch.list_authenticated_providers",
         side_effect=RuntimeError("catalog blew up"),
     ):
         resp = server._methods["model.options"](77, {"session_id": ""})

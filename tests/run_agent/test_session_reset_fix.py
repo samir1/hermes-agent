@@ -12,16 +12,13 @@ from pathlib import Path
 
 import pytest
 
-# Ensure repo root is importable
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
-
 # Stub out optional heavy dependencies not installed in the test environment
 sys.modules.setdefault("fire", types.SimpleNamespace(Fire=lambda *a, **k: None))
 sys.modules.setdefault("firecrawl", types.SimpleNamespace(Firecrawl=object))
 sys.modules.setdefault("fal_client", types.SimpleNamespace())
 
-from run_agent import AIAgent
-from agent.context_compressor import ContextCompressor
+from hermes_agent.agent.loop import AIAgent
+from hermes_agent.agent.context.compressor import ContextCompressor
 
 
 def _make_minimal_agent() -> AIAgent:

@@ -13,7 +13,7 @@ Only ONE provider can be active at a time, selected via
 ``memory.provider`` in config.yaml.
 
 Usage:
-    from plugins.memory import discover_memory_providers, load_memory_provider
+    from hermes_agent.plugins.memory import discover_memory_providers, load_memory_provider
 
     available = discover_memory_providers()   # [(name, desc, available), ...]
     provider = load_memory_provider("mnemosyne")  # MemoryProvider instance
@@ -40,7 +40,7 @@ _MEMORY_PLUGINS_DIR = Path(__file__).parent
 def _get_user_plugins_dir() -> Optional[Path]:
     """Return ``$HERMES_HOME/plugins/`` or None if unavailable."""
     try:
-        from hermes_constants import get_hermes_home
+        from hermes_agent.constants import get_hermes_home
         d = get_hermes_home() / "plugins"
         return d if d.is_dir() else None
     except Exception:
@@ -192,7 +192,7 @@ def _load_provider_from_dir(provider_dir: Path) -> Optional["MemoryProvider"]:
     # Use a separate namespace for user-installed plugins so they don't
     # collide with bundled providers in sys.modules.
     _is_bundled = _MEMORY_PLUGINS_DIR in provider_dir.parents or provider_dir.parent == _MEMORY_PLUGINS_DIR
-    module_name = f"plugins.memory.{name}" if _is_bundled else f"_hermes_user_memory.{name}"
+    module_name = f"hermes_agent.plugins.memory.{name}" if _is_bundled else f"_hermes_user_memory.{name}"
     init_file = provider_dir / "__init__.py"
 
     if not init_file.exists():
@@ -204,10 +204,10 @@ def _load_provider_from_dir(provider_dir: Path) -> Optional["MemoryProvider"]:
     else:
         # Handle relative imports within the plugin
         # First ensure the parent packages are registered
-        for parent in ("plugins", "plugins.memory"):
+        for parent in ("hermes_agent.plugins", "hermes_agent.plugins.memory"):
             if parent not in sys.modules:
                 parent_path = Path(__file__).parent
-                if parent == "plugins":
+                if parent == "hermes_agent.plugins":
                     parent_path = parent_path.parent
                 parent_init = parent_path / "__init__.py"
                 if parent_init.exists():
@@ -271,7 +271,7 @@ def _load_provider_from_dir(provider_dir: Path) -> Optional["MemoryProvider"]:
             logger.debug("register() failed for %s: %s", name, e)
 
     # Fallback: find a MemoryProvider subclass and instantiate it
-    from agent.memory_provider import MemoryProvider
+    from hermes_agent.agent.memory.provider import MemoryProvider
     for attr_name in dir(mod):
         attr = getattr(mod, attr_name, None)
         if (isinstance(attr, type) and issubclass(attr, MemoryProvider)
@@ -312,7 +312,7 @@ def _get_active_memory_provider() -> Optional[str]:
     no plugin loading.
     """
     try:
-        from hermes_cli.config import load_config
+        from hermes_agent.cli.config import load_config
         config = load_config()
         return config.get("memory", {}).get("provider") or None
     except Exception:
@@ -354,7 +354,7 @@ def discover_plugin_cli_commands() -> List[dict]:
         return results
 
     _is_bundled = _MEMORY_PLUGINS_DIR in plugin_dir.parents or plugin_dir.parent == _MEMORY_PLUGINS_DIR
-    module_name = f"plugins.memory.{active_provider}.cli" if _is_bundled else f"_hermes_user_memory.{active_provider}.cli"
+    module_name = f"hermes_agent.plugins.memory.{active_provider}.cli" if _is_bundled else f"_hermes_user_memory.{active_provider}.cli"
     try:
         # Import the CLI module (lightweight — no SDK needed)
         if module_name in sys.modules:

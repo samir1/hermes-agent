@@ -16,10 +16,10 @@ import logging
 import os
 from pathlib import Path
 
-from hermes_constants import get_hermes_home
+from hermes_agent.constants import get_hermes_home
 from types import SimpleNamespace
 from typing import Any, Dict, List, Optional, Tuple
-from utils import normalize_proxy_env_vars
+from hermes_agent.utils import normalize_proxy_env_vars
 
 try:
     import anthropic as _anthropic_sdk
@@ -1572,7 +1572,7 @@ def normalize_anthropic_response_v2(
     to the shared transport types.  This allows incremental migration —
     one call site at a time — without changing the original function.
     """
-    from agent.transports.types import NormalizedResponse, build_tool_call
+    from hermes_agent.providers.types import NormalizedResponse, build_tool_call
 
     assistant_msg, finish_reason = normalize_anthropic_response(response, strip_tool_prefix)
 

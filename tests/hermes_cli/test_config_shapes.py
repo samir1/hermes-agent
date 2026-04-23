@@ -4,7 +4,7 @@ from __future__ import annotations
 
 
 def test_camofox_config_is_partial_typeddict():
-    from hermes_cli.config import _CamofoxConfig
+    from hermes_agent.cli.config import _CamofoxConfig
 
     cfg_empty: _CamofoxConfig = {}
     cfg_with_field: _CamofoxConfig = {"managed_persistence": True}
@@ -14,7 +14,7 @@ def test_camofox_config_is_partial_typeddict():
 
 
 def test_camofox_config_nested_in_browser_config():
-    from hermes_cli.config import _BrowserConfig
+    from hermes_agent.cli.config import _BrowserConfig
 
     browser: _BrowserConfig = {
         "inactivity_timeout": 60,

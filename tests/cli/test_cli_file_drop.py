@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from cli import _detect_file_drop
+from hermes_agent.cli.repl import _detect_file_drop
 
 
 # ---------------------------------------------------------------------------

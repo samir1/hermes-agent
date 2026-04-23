@@ -5,7 +5,7 @@ import time
 import pytest
 from unittest.mock import MagicMock, patch, AsyncMock
 
-from gateway.config import Platform, PlatformConfig
+from hermes_agent.gateway.config import Platform, PlatformConfig
 
 
 # ---------------------------------------------------------------------------
@@ -17,7 +17,7 @@ class TestMattermostConfigLoading:
         monkeypatch.setenv("MATTERMOST_TOKEN", "mm-tok-abc123")
         monkeypatch.setenv("MATTERMOST_URL", "https://mm.example.com")
 
-        from gateway.config import GatewayConfig, _apply_env_overrides
+        from hermes_agent.gateway.config import GatewayConfig, _apply_env_overrides
         config = GatewayConfig()
         _apply_env_overrides(config)
 
@@ -31,7 +31,7 @@ class TestMattermostConfigLoading:
         monkeypatch.delenv("MATTERMOST_TOKEN", raising=False)
         monkeypatch.delenv("MATTERMOST_URL", raising=False)
 
-        from gateway.config import GatewayConfig, _apply_env_overrides
+        from hermes_agent.gateway.config import GatewayConfig, _apply_env_overrides
         config = GatewayConfig()
         _apply_env_overrides(config)
 
@@ -43,7 +43,7 @@ class TestMattermostConfigLoading:
         monkeypatch.setenv("MATTERMOST_HOME_CHANNEL", "ch_abc123")
         monkeypatch.setenv("MATTERMOST_HOME_CHANNEL_NAME", "General")
 
-        from gateway.config import GatewayConfig, _apply_env_overrides
+        from hermes_agent.gateway.config import GatewayConfig, _apply_env_overrides
         config = GatewayConfig()
         _apply_env_overrides(config)
 
@@ -57,7 +57,7 @@ class TestMattermostConfigLoading:
         monkeypatch.setenv("MATTERMOST_TOKEN", "mm-tok-abc123")
         monkeypatch.delenv("MATTERMOST_URL", raising=False)
 
-        from gateway.config import GatewayConfig, _apply_env_overrides
+        from hermes_agent.gateway.config import GatewayConfig, _apply_env_overrides
         config = GatewayConfig()
         _apply_env_overrides(config)
 
@@ -71,7 +71,7 @@ class TestMattermostConfigLoading:
 
 def _make_adapter():
     """Create a MattermostAdapter with mocked config."""
-    from gateway.platforms.mattermost import MattermostAdapter
+    from hermes_agent.gateway.platforms.mattermost import MattermostAdapter
     config = PlatformConfig(
         enabled=True,
         token="test-token",
@@ -484,7 +484,7 @@ class TestMattermostFileUpload:
         self.adapter._session = MagicMock()
 
     @pytest.mark.asyncio
-    @patch("tools.url_safety.is_safe_url", return_value=True)
+    @patch("hermes_agent.tools.security.urls.is_safe_url", return_value=True)
     async def test_send_image_downloads_and_uploads(self, _mock_safe):
         """send_image should download the URL, upload via /api/v4/files, then post."""
         # Mock the download (GET)
@@ -625,19 +625,19 @@ class TestMattermostRequirements:
     def test_check_requirements_with_token_and_url(self, monkeypatch):
         monkeypatch.setenv("MATTERMOST_TOKEN", "test-token")
         monkeypatch.setenv("MATTERMOST_URL", "https://mm.example.com")
-        from gateway.platforms.mattermost import check_mattermost_requirements
+        from hermes_agent.gateway.platforms.mattermost import check_mattermost_requirements
         assert check_mattermost_requirements() is True
 
     def test_check_requirements_without_token(self, monkeypatch):
         monkeypatch.delenv("MATTERMOST_TOKEN", raising=False)
         monkeypatch.delenv("MATTERMOST_URL", raising=False)
-        from gateway.platforms.mattermost import check_mattermost_requirements
+        from hermes_agent.gateway.platforms.mattermost import check_mattermost_requirements
         assert check_mattermost_requirements() is False
 
     def test_check_requirements_without_url(self, monkeypatch):
         monkeypatch.setenv("MATTERMOST_TOKEN", "test-token")
         monkeypatch.delenv("MATTERMOST_URL", raising=False)
-        from gateway.platforms.mattermost import check_mattermost_requirements
+        from hermes_agent.gateway.platforms.mattermost import check_mattermost_requirements
         assert check_mattermost_requirements() is False
 
 
@@ -686,7 +686,7 @@ class TestMattermostMediaTypes:
         self.adapter._session = MagicMock()
         self.adapter._session.get = MagicMock(return_value=mock_resp)
 
-        with patch("gateway.platforms.base.cache_image_from_bytes", return_value="/tmp/photo.png"):
+        with patch("hermes_agent.gateway.platforms.base.cache_image_from_bytes", return_value="/tmp/photo.png"):
             await self.adapter._handle_ws_event(self._make_event(["file1"]))
 
         msg = self.adapter.handle_message.call_args[0][0]
@@ -707,9 +707,9 @@ class TestMattermostMediaTypes:
         self.adapter._session = MagicMock()
         self.adapter._session.get = MagicMock(return_value=mock_resp)
 
-        with patch("gateway.platforms.base.cache_audio_from_bytes", return_value="/tmp/voice.ogg"), \
-             patch("gateway.platforms.base.cache_image_from_bytes"), \
-             patch("gateway.platforms.base.cache_document_from_bytes"):
+        with patch("hermes_agent.gateway.platforms.base.cache_audio_from_bytes", return_value="/tmp/voice.ogg"), \
+             patch("hermes_agent.gateway.platforms.base.cache_image_from_bytes"), \
+             patch("hermes_agent.gateway.platforms.base.cache_document_from_bytes"):
             await self.adapter._handle_ws_event(self._make_event(["file2"]))
 
         msg = self.adapter.handle_message.call_args[0][0]
@@ -730,8 +730,8 @@ class TestMattermostMediaTypes:
         self.adapter._session = MagicMock()
         self.adapter._session.get = MagicMock(return_value=mock_resp)
 
-        with patch("gateway.platforms.base.cache_document_from_bytes", return_value="/tmp/report.pdf"), \
-             patch("gateway.platforms.base.cache_image_from_bytes"):
+        with patch("hermes_agent.gateway.platforms.base.cache_document_from_bytes", return_value="/tmp/report.pdf"), \
+             patch("hermes_agent.gateway.platforms.base.cache_image_from_bytes"):
             await self.adapter._handle_ws_event(self._make_event(["file3"]))
 
         msg = self.adapter.handle_message.call_args[0][0]

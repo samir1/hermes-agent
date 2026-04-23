@@ -66,8 +66,8 @@ def test_circuit_breaker_half_opens_after_cooldown(monkeypatch, tmp_path):
     """
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
 
-    from tools import mcp_tool
-    from tools.mcp_tool import _make_tool_handler
+    from hermes_agent.tools.mcp import tool as mcp_tool
+    from hermes_agent.tools.mcp.tool import _make_tool_handler
 
     call_count = {"n": 0}
 
@@ -134,8 +134,8 @@ def test_circuit_breaker_reopens_on_probe_failure(monkeypatch, tmp_path):
     """
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
 
-    from tools import mcp_tool
-    from tools.mcp_tool import _make_tool_handler
+    from hermes_agent.tools.mcp import tool as mcp_tool
+    from hermes_agent.tools.mcp.tool import _make_tool_handler
 
     call_count = {"n": 0}
 
@@ -192,8 +192,8 @@ def test_circuit_breaker_cleared_on_reconnect(monkeypatch, tmp_path):
     """
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
 
-    from tools import mcp_tool
-    from tools.mcp_oauth_manager import get_manager, reset_manager_for_tests
+    from hermes_agent.tools.mcp import tool as mcp_tool
+    from hermes_agent.tools.mcp.oauth_manager import get_manager, reset_manager_for_tests
     from mcp.client.auth import OAuthFlowError
 
     reset_manager_for_tests()

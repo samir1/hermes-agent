@@ -8,7 +8,7 @@ history.
 """
 from __future__ import annotations
 
-from hermes_constants import get_hermes_home
+from hermes_agent.constants import get_hermes_home
 
 import copy
 import json
@@ -100,7 +100,7 @@ def _register_task_cwd(task_id: str, cwd: str) -> None:
     if not task_id:
         return
     try:
-        from tools.terminal_tool import register_task_env_overrides
+        from hermes_agent.tools.terminal import register_task_env_overrides
         register_task_env_overrides(task_id, {"cwd": cwd})
     except Exception:
         logger.debug("Failed to register ACP task cwd override", exc_info=True)
@@ -111,7 +111,7 @@ def _clear_task_cwd(task_id: str) -> None:
     if not task_id:
         return
     try:
-        from tools.terminal_tool import clear_task_env_overrides
+        from hermes_agent.tools.terminal import clear_task_env_overrides
         clear_task_env_overrides(task_id)
     except Exception:
         logger.debug("Failed to clear ACP task cwd override", exc_info=True)
@@ -355,7 +355,7 @@ class SessionManager:
         if self._db_instance is not None:
             return self._db_instance
         try:
-            from hermes_state import SessionDB
+            from hermes_agent.state import SessionDB
             hermes_home = get_hermes_home()
             self._db_instance = SessionDB(db_path=hermes_home / "state.db")
             return self._db_instance
@@ -523,9 +523,9 @@ class SessionManager:
         if self._agent_factory is not None:
             return self._agent_factory()
 
-        from run_agent import AIAgent
-        from hermes_cli.config import load_config
-        from hermes_cli.runtime_provider import resolve_runtime_provider
+        from hermes_agent.agent.loop import AIAgent
+        from hermes_agent.cli.config import load_config
+        from hermes_agent.cli.runtime_provider import resolve_runtime_provider
 
         config = load_config()
         model_cfg = config.get("model")

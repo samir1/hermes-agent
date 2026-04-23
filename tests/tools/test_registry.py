@@ -5,7 +5,7 @@ import threading
 from pathlib import Path
 from unittest.mock import patch
 
-from tools.registry import ToolRegistry, discover_builtin_tools
+from hermes_agent.tools.registry import ToolRegistry, discover_builtin_tools
 
 
 def _dummy_handler(args, **kwargs):
@@ -291,34 +291,34 @@ class TestCheckFnExceptionHandling:
 class TestBuiltinDiscovery:
     def test_matches_previous_manual_builtin_tool_set(self):
         expected = {
-            "tools.browser_cdp_tool",
-            "tools.browser_tool",
-            "tools.clarify_tool",
-            "tools.code_execution_tool",
-            "tools.cronjob_tools",
-            "tools.delegate_tool",
-            "tools.discord_tool",
-            "tools.feishu_doc_tool",
-            "tools.feishu_drive_tool",
-            "tools.file_tools",
-            "tools.homeassistant_tool",
-            "tools.image_generation_tool",
-            "tools.memory_tool",
-            "tools.mixture_of_agents_tool",
-            "tools.process_registry",
-            "tools.rl_training_tool",
-            "tools.send_message_tool",
-            "tools.session_search_tool",
-            "tools.skill_manager_tool",
-            "tools.skills_tool",
-            "tools.terminal_tool",
-            "tools.todo_tool",
-            "tools.tts_tool",
-            "tools.vision_tools",
-            "tools.web_tools",
+            "hermes_agent.tools.browser.cdp",
+            "hermes_agent.tools.browser.tool",
+            "hermes_agent.tools.clarify",
+            "hermes_agent.tools.code_execution",
+            "hermes_agent.tools.cronjob",
+            "hermes_agent.tools.delegate",
+            "hermes_agent.tools.discord",
+            "hermes_agent.tools.feishu_doc",
+            "hermes_agent.tools.feishu_drive",
+            "hermes_agent.tools.files.tools",
+            "hermes_agent.tools.homeassistant",
+            "hermes_agent.tools.media.image_gen",
+            "hermes_agent.tools.memory",
+            "hermes_agent.tools.mixture_of_agents",
+            "hermes_agent.tools.process_registry",
+            "hermes_agent.tools.rl_training",
+            "hermes_agent.tools.send_message",
+            "hermes_agent.tools.session_search",
+            "hermes_agent.tools.skills.manager",
+            "hermes_agent.tools.skills.tool",
+            "hermes_agent.tools.terminal",
+            "hermes_agent.tools.todo",
+            "hermes_agent.tools.media.tts",
+            "hermes_agent.tools.vision",
+            "hermes_agent.tools.web",
         }
 
-        with patch("tools.registry.importlib.import_module"):
+        with patch("hermes_agent.tools.registry.importlib.import_module"):
             imported = discover_builtin_tools(Path(__file__).resolve().parents[2] / "tools")
 
         assert set(imported) == expected
@@ -334,11 +334,11 @@ class TestBuiltinDiscovery:
         )
         (tools_dir / "beta.py").write_text("VALUE = 1\n", encoding="utf-8")
 
-        with patch("tools.registry.importlib.import_module") as mock_import:
+        with patch("hermes_agent.tools.registry.importlib.import_module") as mock_import:
             imported = discover_builtin_tools(tools_dir)
 
-        assert imported == ["tools.alpha"]
-        mock_import.assert_called_once_with("tools.alpha")
+        assert imported == ["hermes_agent.tools.alpha"]
+        mock_import.assert_called_once_with("hermes_agent.tools.alpha")
 
     def test_skips_mcp_tool_even_if_it_registers(self, tmp_path):
         tools_dir = tmp_path / "tools"
@@ -353,11 +353,11 @@ class TestBuiltinDiscovery:
             encoding="utf-8",
         )
 
-        with patch("tools.registry.importlib.import_module") as mock_import:
+        with patch("hermes_agent.tools.registry.importlib.import_module") as mock_import:
             imported = discover_builtin_tools(tools_dir)
 
-        assert imported == ["tools.alpha"]
-        mock_import.assert_called_once_with("tools.alpha")
+        assert imported == ["hermes_agent.tools.alpha"]
+        mock_import.assert_called_once_with("hermes_agent.tools.alpha")
 
 
 class TestEmojiMetadata:

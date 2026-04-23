@@ -28,13 +28,9 @@ except ImportError:
     AsyncSocketModeHandler = Any
     AsyncWebClient = Any
 
-import sys
-from pathlib import Path as _Path
-sys.path.insert(0, str(_Path(__file__).resolve().parents[2]))
-
-from gateway.config import Platform, PlatformConfig
-from gateway.platforms.helpers import MessageDeduplicator
-from gateway.platforms.base import (
+from hermes_agent.gateway.config import Platform, PlatformConfig
+from hermes_agent.gateway.platforms.helpers import MessageDeduplicator
+from hermes_agent.gateway.platforms.base import (
     BasePlatformAdapter,
     MessageEvent,
     MessageType,
@@ -136,7 +132,7 @@ class SlackAdapter(BasePlatformAdapter):
         bot_tokens = [t.strip() for t in raw_token.split(",") if t.strip()]
 
         # Also load tokens from OAuth token file
-        from hermes_constants import get_hermes_home
+        from hermes_agent.constants import get_hermes_home
         tokens_file = get_hermes_home() / "slack_tokens.json"
         if tokens_file.exists():
             try:
@@ -654,7 +650,7 @@ class SlackAdapter(BasePlatformAdapter):
         if not self._app:
             return SendResult(success=False, error="Not connected")
 
-        from tools.url_safety import is_safe_url
+        from hermes_agent.tools.security.urls import is_safe_url
         if not is_safe_url(image_url):
             logger.warning("[Slack] Blocked unsafe image URL (SSRF protection)")
             return await super().send_image(chat_id, image_url, caption, reply_to, metadata=metadata)
@@ -1193,7 +1189,7 @@ class SlackAdapter(BasePlatformAdapter):
         )
 
         # Per-channel ephemeral prompt
-        from gateway.platforms.base import resolve_channel_prompt
+        from hermes_agent.gateway.platforms.base import resolve_channel_prompt
         _channel_prompt = resolve_channel_prompt(
             self.config.extra, channel_id, None,
         )
@@ -1388,7 +1384,7 @@ class SlackAdapter(BasePlatformAdapter):
 
         # Resolve the approval — this unblocks the agent thread
         try:
-            from tools.approval import resolve_gateway_approval
+            from hermes_agent.tools.security.approval import resolve_gateway_approval
             count = resolve_gateway_approval(session_key, choice)
             logger.info(
                 "Slack button resolved %d approval(s) for session %s (choice=%s, user=%s)",
@@ -1523,7 +1519,7 @@ class SlackAdapter(BasePlatformAdapter):
 
         # Map subcommands to gateway commands — derived from central registry.
         # Also keep "compact" as a Slack-specific alias for /compress.
-        from hermes_cli.commands import slack_subcommand_map
+        from hermes_agent.cli.commands import slack_subcommand_map
         subcommand_map = slack_subcommand_map()
         subcommand_map["compact"] = "/compress"
         first_word = text.split()[0] if text else ""
@@ -1572,7 +1568,7 @@ class SlackAdapter(BasePlatformAdapter):
             return False
 
         try:
-            from gateway.session import SessionSource, build_session_key
+            from hermes_agent.gateway.session import SessionSource, build_session_key
 
             source = SessionSource(
                 platform=Platform.SLACK,
@@ -1626,10 +1622,10 @@ class SlackAdapter(BasePlatformAdapter):
                         )
 
                     if audio:
-                        from gateway.platforms.base import cache_audio_from_bytes
+                        from hermes_agent.gateway.platforms.base import cache_audio_from_bytes
                         return cache_audio_from_bytes(response.content, ext)
                     else:
-                        from gateway.platforms.base import cache_image_from_bytes
+                        from hermes_agent.gateway.platforms.base import cache_image_from_bytes
                         return cache_image_from_bytes(response.content, ext)
                 except (httpx.TimeoutException, httpx.HTTPStatusError) as exc:
                     if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code < 429:

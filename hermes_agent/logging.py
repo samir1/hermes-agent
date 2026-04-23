@@ -30,7 +30,7 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Optional, Sequence
 
-from hermes_constants import get_config_path, get_hermes_home
+from hermes_agent.constants import get_config_path, get_hermes_home
 
 # Sentinel to track whether setup_logging() has already run.  The function
 # is idempotent — calling it twice is safe but the second call is a no-op
@@ -141,11 +141,14 @@ class _ComponentFilter(logging.Filter):
 # Logger name prefixes that belong to each component.
 # Used by _ComponentFilter and exposed for ``hermes logs --component``.
 COMPONENT_PREFIXES = {
-    "gateway": ("gateway",),
-    "agent": ("agent", "run_agent", "model_tools", "scripts.batch_runner"),
-    "tools": ("tools",),
-    "cli": ("hermes_cli", "cli"),
-    "cron": ("cron",),
+    "gateway":   ("hermes_agent.gateway",),
+    "agent":     ("hermes_agent.agent",),
+    "tools":     ("hermes_agent.tools",),
+    "cli":       ("hermes_agent.cli",),
+    "cron":      ("hermes_agent.cron",),
+    "providers": ("hermes_agent.providers",),
+    "backends":  ("hermes_agent.backends",),
+    "acp":       ("hermes_agent.acp",),
 }
 
 
@@ -212,7 +215,7 @@ def setup_logging(
     backups = backup_count or cfg_backup or 3
 
     # Lazy import to avoid circular dependency at module load time.
-    from agent.redact import RedactingFormatter
+    from hermes_agent.agent.redact import RedactingFormatter
 
     root = logging.getLogger()
 
@@ -265,7 +268,7 @@ def setup_verbose_logging() -> None:
 
     Called by ``AIAgent.__init__()`` when ``verbose_logging=True``.
     """
-    from agent.redact import RedactingFormatter
+    from hermes_agent.agent.redact import RedactingFormatter
 
     root = logging.getLogger()
 
@@ -307,7 +310,7 @@ class _ManagedRotatingFileHandler(RotatingFileHandler):
     """
 
     def __init__(self, *args, **kwargs):
-        from hermes_cli.config import is_managed
+        from hermes_agent.cli.config import is_managed
         self._managed = is_managed()
         super().__init__(*args, **kwargs)
 

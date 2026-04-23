@@ -15,8 +15,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from gateway.config import Platform, PlatformConfig
-from gateway.platforms.base import (
+from hermes_agent.gateway.config import Platform, PlatformConfig
+from hermes_agent.gateway.platforms.base import (
     MessageEvent,
     MessageType,
     SendResult,
@@ -56,10 +56,10 @@ def _ensure_slack_mock():
 _ensure_slack_mock()
 
 # Patch SLACK_AVAILABLE before importing the adapter
-import gateway.platforms.slack as _slack_mod
+import hermes_agent.gateway.platforms.slack as _slack_mod
 _slack_mod.SLACK_AVAILABLE = True
 
-from gateway.platforms.slack import SlackAdapter  # noqa: E402
+from hermes_agent.gateway.platforms.slack import SlackAdapter  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -84,7 +84,7 @@ def adapter():
 def _redirect_cache(tmp_path, monkeypatch):
     """Point document cache to tmp_path so tests don't touch ~/.hermes."""
     monkeypatch.setattr(
-        "gateway.platforms.base.DOCUMENT_CACHE_DIR", tmp_path / "doc_cache"
+        "hermes_agent.gateway.platforms.base.DOCUMENT_CACHE_DIR", tmp_path / "doc_cache"
     )
 
 
@@ -139,7 +139,7 @@ class TestAppMentionHandler:
              patch.object(_slack_mod, "AsyncWebClient", return_value=mock_web_client), \
              patch.object(_slack_mod, "AsyncSocketModeHandler", return_value=MagicMock()), \
              patch.dict(os.environ, {"SLACK_APP_TOKEN": "xapp-fake"}), \
-             patch("gateway.status.acquire_scoped_lock", return_value=(True, None)), \
+             patch("hermes_agent.gateway.status.acquire_scoped_lock", return_value=(True, None)), \
              patch("asyncio.create_task"):
             asyncio.run(adapter.connect())
 
@@ -166,8 +166,8 @@ class TestSlackConnectCleanup:
              patch.object(_slack_mod, "AsyncWebClient", return_value=mock_web_client), \
              patch.object(_slack_mod, "AsyncSocketModeHandler", return_value=MagicMock()), \
              patch.dict(os.environ, {"SLACK_APP_TOKEN": "xapp-fake"}), \
-             patch("gateway.status.acquire_scoped_lock", return_value=(True, None)), \
-             patch("gateway.status.release_scoped_lock") as mock_release:
+             patch("hermes_agent.gateway.status.acquire_scoped_lock", return_value=(True, None)), \
+             patch("hermes_agent.gateway.status.release_scoped_lock") as mock_release:
             result = await adapter.connect()
 
         assert result is False
@@ -1647,7 +1647,7 @@ class TestSendImageSSRFGuards:
             return url == "https://public.example/image.png"
 
         with (
-            patch("tools.url_safety.is_safe_url", side_effect=fake_is_safe_url),
+            patch("hermes_agent.tools.security.urls.is_safe_url", side_effect=fake_is_safe_url),
             patch("httpx.AsyncClient", side_effect=fake_async_client),
         ):
             result = await adapter.send_image(

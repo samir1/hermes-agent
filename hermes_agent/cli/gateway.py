@@ -15,13 +15,13 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent.parent.resolve()
 
-from gateway.status import terminate_pid
-from gateway.restart import (
+from hermes_agent.gateway.status import terminate_pid
+from hermes_agent.gateway.restart import (
     DEFAULT_GATEWAY_RESTART_DRAIN_TIMEOUT,
     GATEWAY_SERVICE_RESTART_EXIT_CODE,
     parse_restart_drain_timeout,
 )
-from hermes_cli.config import (
+from hermes_agent.cli.config import (
     get_env_value,
     get_hermes_home,
     is_managed,
@@ -31,11 +31,11 @@ from hermes_cli.config import (
 )
 # display_hermes_home is imported lazily at call sites to avoid ImportError
 # when hermes_constants is cached from a pre-update version during `hermes update`.
-from hermes_cli.setup import (
+from hermes_agent.cli.setup_wizard import (
     print_header, print_info, print_success, print_warning, print_error,
     prompt, prompt_choice, prompt_yes_no,
 )
-from hermes_cli.colors import Colors, color
+from hermes_agent.cli.ui.colors import Colors, color
 
 
 # =============================================================================
@@ -192,6 +192,12 @@ def _scan_gateway_pids(exclude_pids: set[int], all_profiles: bool = False) -> li
     """
     pids: list[int] = []
     patterns = [
+        "hermes_agent.cli.main gateway",
+        "hermes_agent.cli.main --profile",
+        "hermes_agent.cli.main -p",
+        "hermes_agent/cli/main.py gateway",
+        "hermes_agent/cli/main.py --profile",
+        "hermes_agent/cli/main.py -p",
         "hermes_cli.main gateway",
         "hermes_cli.main --profile",
         "hermes_cli.main -p",
@@ -303,7 +309,7 @@ def find_gateway_pids(exclude_pids: set | None = None, all_profiles: bool = Fals
     pids: list[int] = []
     if not all_profiles:
         try:
-            from gateway.status import get_running_pid
+            from hermes_agent.gateway.status import get_running_pid
 
             _append_unique_pid(pids, get_running_pid(), _exclude)
         except Exception:
@@ -357,7 +363,7 @@ def get_gateway_runtime_snapshot(system: bool = False) -> GatewayRuntimeSnapshot
             gateway_pids=gateway_pids,
         )
 
-    from hermes_constants import is_container
+    from hermes_agent.constants import is_container
 
     if is_linux() and is_container():
         return GatewayRuntimeSnapshot(
@@ -445,7 +451,7 @@ def stop_profile_gateway() -> bool:
     Returns True if a process was stopped, False if none was found.
     """
     try:
-        from gateway.status import get_running_pid, remove_pid_file
+        from hermes_agent.gateway.status import get_running_pid, remove_pid_file
     except ImportError:
         return False
 
@@ -478,7 +484,7 @@ def is_linux() -> bool:
     return sys.platform.startswith('linux')
 
 
-from hermes_constants import is_container, is_termux, is_wsl
+from hermes_agent.constants import is_container, is_termux, is_wsl
 
 
 def _wsl_systemd_operational() -> bool:
@@ -552,7 +558,7 @@ def _profile_suffix() -> str:
     """
     import hashlib
     import re
-    from hermes_constants import get_default_hermes_root
+    from hermes_agent.constants import get_default_hermes_root
     home = get_hermes_home().resolve()
     default = get_default_hermes_root().resolve()
     if home == default:
@@ -582,7 +588,7 @@ def _profile_arg(hermes_home: str | None = None) -> str:
             service definition for a different user (e.g. system service).
     """
     import re
-    from hermes_constants import get_default_hermes_root
+    from hermes_agent.constants import get_default_hermes_root
     home = Path(hermes_home or str(get_hermes_home())).resolve()
     default = get_default_hermes_root().resolve()
     if home == default:
@@ -696,6 +702,8 @@ _LEGACY_SERVICE_NAMES: tuple[str, ...] = ("hermes.service",)
 # ExecStart content markers that identify a unit as running our gateway.
 # A legacy unit is only flagged when its file contains one of these.
 _LEGACY_UNIT_EXECSTART_MARKERS: tuple[str, ...] = (
+    "hermes_agent.cli.main gateway",
+    "hermes_agent/cli/main.py gateway",
     "hermes_cli.main gateway",
     "hermes_cli/main.py gateway",
     "gateway/run.py",
@@ -1221,7 +1229,7 @@ StartLimitBurst=5
 Type=simple
 User={username}
 Group={group_name}
-ExecStart={python_path} -m hermes_cli.main{f" {profile_arg}" if profile_arg else ""} gateway run --replace
+ExecStart={python_path} -m hermes_agent.cli.main{f" {profile_arg}" if profile_arg else ""} gateway run --replace
 WorkingDirectory={working_dir}
 Environment="HOME={home_dir}"
 Environment="USER={username}"
@@ -1256,7 +1264,7 @@ StartLimitBurst=5
 
 [Service]
 Type=simple
-ExecStart={python_path} -m hermes_cli.main{f" {profile_arg}" if profile_arg else ""} gateway run --replace
+ExecStart={python_path} -m hermes_agent.cli.main{f" {profile_arg}" if profile_arg else ""} gateway run --replace
 WorkingDirectory={working_dir}
 Environment="PATH={sane_path}"
 Environment="VIRTUAL_ENV={venv_dir}"
@@ -1501,7 +1509,7 @@ def systemd_restart(system: bool = False):
     if system:
         _require_root_for_system_service("restart")
     refresh_systemd_unit_if_needed(system=system)
-    from gateway.status import get_running_pid
+    from hermes_agent.gateway.status import get_running_pid
 
     pid = get_running_pid()
     if pid is not None and _request_gateway_self_restart(pid):
@@ -1689,7 +1697,7 @@ def generate_launchd_plist() -> str:
     prog_args = [
         f"<string>{python_path}</string>",
         "<string>-m</string>",
-        "<string>hermes_cli.main</string>",
+        "<string>hermes_agent.cli.main</string>",
     ]
     if profile_arg:
         for part in profile_arg.split():
@@ -1799,7 +1807,7 @@ def launchd_install(force: bool = False):
     print()
     print("Next steps:")
     print("  hermes gateway status             # Check status")
-    from hermes_constants import display_hermes_home as _dhh
+    from hermes_agent.constants import display_hermes_home as _dhh
     print(f"  tail -f {_dhh()}/logs/gateway.log  # View logs")
 
 def launchd_uninstall():
@@ -1867,7 +1875,7 @@ def _wait_for_gateway_exit(timeout: float = 10.0, force_after: float | None = 5.
         force_after: Seconds of graceful waiting before escalating to force-kill.
     """
     import time
-    from gateway.status import get_running_pid
+    from hermes_agent.gateway.status import get_running_pid
 
     deadline = time.monotonic() + timeout
     force_deadline = (time.monotonic() + force_after) if force_after is not None else None
@@ -1901,7 +1909,7 @@ def launchd_restart():
     label = get_launchd_label()
     target = f"{_launchd_domain()}/{label}"
     drain_timeout = _get_restart_drain_timeout()
-    from gateway.status import get_running_pid
+    from hermes_agent.gateway.status import get_running_pid
 
     try:
         pid = get_running_pid()
@@ -1982,9 +1990,7 @@ def run_gateway(verbose: int = 0, quiet: bool = False, replace: bool = False):
                  This prevents systemd restart loops when the old process
                  hasn't fully exited yet.
     """
-    sys.path.insert(0, str(PROJECT_ROOT))
-    
-    from gateway.run import start_gateway
+    from hermes_agent.gateway.run import start_gateway
     
     print("┌─────────────────────────────────────────────────────────┐")
     print("│           ⚕ Hermes Gateway Starting...                 │")
@@ -2430,7 +2436,7 @@ def _platform_status(platform: dict) -> str:
 def _runtime_health_lines() -> list[str]:
     """Summarize the latest persisted gateway runtime health state."""
     try:
-        from gateway.status import read_runtime_status
+        from hermes_agent.gateway.status import read_runtime_status
     except Exception:
         return []
 
@@ -2562,7 +2568,7 @@ def _setup_standard_platform(platform: dict):
 
 def _setup_whatsapp():
     """Delegate to the existing WhatsApp setup flow."""
-    from hermes_cli.main import cmd_whatsapp
+    from hermes_agent.cli.main import cmd_whatsapp
     import argparse
     cmd_whatsapp(argparse.Namespace())
 
@@ -2581,7 +2587,7 @@ def _setup_sms():
 
 def _setup_dingtalk():
     """Configure DingTalk — QR scan (recommended) or manual credential entry."""
-    from hermes_cli.setup import (
+    from hermes_agent.cli.setup_wizard import (
         prompt_choice, prompt_yes_no, print_info, print_success, print_warning,
     )
 
@@ -2612,7 +2618,7 @@ def _setup_dingtalk():
     if method == 0:
         # ── QR-code device-flow authorization ──
         try:
-            from hermes_cli.dingtalk_auth import dingtalk_qr_auth
+            from hermes_agent.cli.auth.dingtalk import dingtalk_qr_auth
         except ImportError as exc:
             print_warning(f"  QR auth module failed to load ({exc}), falling back to manual input.")
             _setup_standard_platform(dingtalk_platform)
@@ -2720,7 +2726,7 @@ def _setup_weixin():
             return
 
     try:
-        from gateway.platforms.weixin import check_weixin_requirements, qr_login
+        from hermes_agent.gateway.platforms.weixin import check_weixin_requirements, qr_login
     except Exception as exc:
         print_error(f"  Weixin adapter import failed: {exc}")
         print_info("  Install gateway dependencies first, then retry.")
@@ -2855,7 +2861,7 @@ def _setup_feishu():
     if method_idx == 0:
         # ── QR scan-to-create ──
         try:
-            from gateway.platforms.feishu import qr_register
+            from hermes_agent.gateway.platforms.feishu import qr_register
         except Exception as exc:
             print_error(f"  Feishu / Lark onboard import failed: {exc}")
             qr_register = None
@@ -2896,7 +2902,7 @@ def _setup_feishu():
         # Try to probe the bot with manual credentials
         bot_name = None
         try:
-            from gateway.platforms.feishu import probe_bot
+            from hermes_agent.gateway.platforms.feishu import probe_bot
             bot_info = probe_bot(app_id, app_secret, domain)
             if bot_info:
                 bot_name = bot_info.get("bot_name")
@@ -3129,11 +3135,11 @@ def _qqbot_qr_flow():
     or None on failure/cancel.
     """
     try:
-        from gateway.platforms.qqbot import (
+        from hermes_agent.gateway.platforms.qqbot import (
             create_bind_task, poll_bind_result, build_connect_url,
             decrypt_secret, BindStatus,
         )
-        from gateway.platforms.qqbot.constants import ONBOARD_POLL_INTERVAL
+        from hermes_agent.gateway.platforms.qqbot.constants import ONBOARD_POLL_INTERVAL
     except Exception as exc:
         print_error(f"  QQBot onboard import failed: {exc}")
         return None
@@ -3471,7 +3477,7 @@ def gateway_setup():
                 print_info("  To enable systemd: add systemd=true to /etc/wsl.conf, then 'wsl --shutdown'")
             else:
                 if is_termux():
-                    from hermes_constants import display_hermes_home as _dhh
+                    from hermes_agent.constants import display_hermes_home as _dhh
                     print_info("  Termux does not use systemd/launchd services.")
                     print_info("  Run in foreground: hermes gateway run")
                     print_info(f"  Or start it manually in the background (best effort): nohup hermes gateway run >{_dhh()}/logs/gateway.log 2>&1 &")

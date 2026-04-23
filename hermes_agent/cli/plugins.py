@@ -43,8 +43,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Set, Union
 
-from hermes_constants import get_hermes_home
-from utils import env_var_enabled
+from hermes_agent.constants import get_hermes_home
+from hermes_agent.utils import env_var_enabled
 
 try:
     import yaml
@@ -73,7 +73,7 @@ VALID_HOOKS: Set[str] = {
     "subagent_stop",
 }
 
-ENTRY_POINTS_GROUP = "hermes_agent.plugins"
+ENTRY_POINTS_GROUP = "plugins"
 
 _NS_PARENT = "hermes_plugins"
 
@@ -91,7 +91,7 @@ def _get_disabled_plugins() -> set:
     ``plugins.enabled``.
     """
     try:
-        from hermes_cli.config import load_config
+        from hermes_agent.cli.config import load_config
         config = load_config()
         disabled = config.get("plugins", {}).get("disabled", [])
         return set(disabled) if isinstance(disabled, list) else set()
@@ -114,7 +114,7 @@ def _get_enabled_plugins() -> Optional[set]:
     * ``set(...)`` — the concrete allow-list.
     """
     try:
-        from hermes_cli.config import load_config
+        from hermes_agent.cli.config import load_config
         config = load_config()
         plugins_cfg = config.get("plugins")
         if not isinstance(plugins_cfg, dict):
@@ -207,7 +207,7 @@ class PluginContext:
         emoji: str = "",
     ) -> None:
         """Register a tool in the global registry **and** track it as plugin-provided."""
-        from tools.registry import registry
+        from hermes_agent.tools.registry import registry
 
         registry.register(
             name=name,
@@ -305,7 +305,7 @@ class PluginContext:
 
         # Reject if it conflicts with a built-in command
         try:
-            from hermes_cli.commands import resolve_command
+            from hermes_agent.cli.commands import resolve_command
             if resolve_command(clean) is not None:
                 logger.warning(
                     "Plugin '%s' tried to register command '/%s' which conflicts "
@@ -341,7 +341,7 @@ class PluginContext:
         Returns:
             JSON string from the tool handler (same format as model tool calls).
         """
-        from tools.registry import registry
+        from hermes_agent.tools.registry import registry
 
         # Wire up parent agent context when available (CLI mode).
         # In gateway mode _cli_ref is None — tools degrade gracefully
@@ -372,7 +372,7 @@ class PluginContext:
             )
             return
         # Defer the import to avoid circular deps at module level
-        from agent.context_engine import ContextEngine
+        from hermes_agent.agent.context.engine import ContextEngine
         if not isinstance(engine, ContextEngine):
             logger.warning(
                 "Plugin '%s' tried to register a context engine that does not "
@@ -397,8 +397,8 @@ class PluginContext:
         ``config.yaml`` matches against when routing ``image_generate``
         tool calls.
         """
-        from agent.image_gen_provider import ImageGenProvider
-        from agent.image_gen_registry import register_provider
+        from hermes_agent.agent.image_gen.provider import ImageGenProvider
+        from hermes_agent.agent.image_gen.registry import register_provider
 
         if not isinstance(provider, ImageGenProvider):
             logger.warning(
@@ -452,7 +452,7 @@ class PluginContext:
             ValueError: if *name* contains ``':'`` or invalid characters.
             FileNotFoundError: if *path* does not exist.
         """
-        from agent.skill_utils import _NAMESPACE_RE
+        from hermes_agent.agent.skill_utils import _NAMESPACE_RE
 
         if ":" in name:
             raise ValueError(
@@ -1087,7 +1087,7 @@ def get_plugin_toolsets() -> List[tuple]:
         return []
 
     try:
-        from tools.registry import registry
+        from hermes_agent.tools.registry import registry
     except Exception:
         return []
 

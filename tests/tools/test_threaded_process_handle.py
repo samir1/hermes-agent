@@ -3,7 +3,7 @@
 import threading
 import time
 
-from tools.environments.base import _ThreadedProcessHandle
+from hermes_agent.backends.base import _ThreadedProcessHandle
 
 
 class TestBasicExecution:

@@ -13,8 +13,6 @@ import pytest
 # ---------------------------------------------------------------------------
 _repo = str(Path(__file__).resolve().parents[2])
 if _repo not in sys.path:
-    sys.path.insert(0, _repo)
-
 
 # ---------------------------------------------------------------------------
 # Minimal Slack SDK mock so SlackAdapter can be imported
@@ -43,8 +41,8 @@ def _ensure_slack_mock():
 
 _ensure_slack_mock()
 
-from gateway.platforms.slack import SlackAdapter
-from gateway.config import Platform, PlatformConfig
+from hermes_agent.gateway.platforms.slack import SlackAdapter
+from hermes_agent.gateway.config import Platform, PlatformConfig
 
 
 def _make_adapter():
@@ -177,7 +175,7 @@ class TestSlackApprovalAction:
         mock_client = adapter._team_clients["T1"]
         mock_client.chat_update = AsyncMock()
 
-        with patch("tools.approval.resolve_gateway_approval", return_value=1) as mock_resolve:
+        with patch("hermes_agent.tools.security.approval.resolve_gateway_approval", return_value=1) as mock_resolve:
             await adapter._handle_approval_action(ack, body, action)
 
         ack.assert_called_once()
@@ -204,7 +202,7 @@ class TestSlackApprovalAction:
             "value": "some-session",
         }
 
-        with patch("tools.approval.resolve_gateway_approval") as mock_resolve:
+        with patch("hermes_agent.tools.security.approval.resolve_gateway_approval") as mock_resolve:
             await adapter._handle_approval_action(ack, body, action)
 
         # Should have acked but NOT resolved
@@ -229,7 +227,7 @@ class TestSlackApprovalAction:
         mock_client = adapter._team_clients["T1"]
         mock_client.chat_update = AsyncMock()
 
-        with patch("tools.approval.resolve_gateway_approval", return_value=1) as mock_resolve:
+        with patch("hermes_agent.tools.security.approval.resolve_gateway_approval", return_value=1) as mock_resolve:
             await adapter._handle_approval_action(ack, body, action)
 
         mock_resolve.assert_called_once_with("session-key", "deny")

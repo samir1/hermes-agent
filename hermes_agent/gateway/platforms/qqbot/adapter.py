@@ -60,8 +60,8 @@ except ImportError:
     HTTPX_AVAILABLE = False
     httpx = None  # type: ignore[assignment]
 
-from gateway.config import Platform, PlatformConfig
-from gateway.platforms.base import (
+from hermes_agent.gateway.config import Platform, PlatformConfig
+from hermes_agent.gateway.platforms.base import (
     BasePlatformAdapter,
     MessageEvent,
     MessageType,
@@ -70,7 +70,7 @@ from gateway.platforms.base import (
     cache_document_from_bytes,
     cache_image_from_bytes,
 )
-from gateway.platforms.helpers import strip_markdown
+from hermes_agent.gateway.platforms.helpers import strip_markdown
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +91,7 @@ class QQCloseError(Exception):
 # Constants — imported from the shared constants module.
 # ---------------------------------------------------------------------------
 
-from gateway.platforms.qqbot.constants import (
+from hermes_agent.gateway.platforms.qqbot.constants import (
     API_BASE,
     TOKEN_URL,
     GATEWAY_URL_PATH,
@@ -115,7 +115,7 @@ from gateway.platforms.qqbot.constants import (
     MEDIA_TYPE_VOICE,
     MEDIA_TYPE_FILE,
 )
-from gateway.platforms.qqbot.utils import (
+from hermes_agent.gateway.platforms.qqbot.utils import (
     coerce_list as _coerce_list_impl,
     build_user_agent,
 )
@@ -1203,7 +1203,7 @@ class QQAdapter(BasePlatformAdapter):
 
     async def _download_and_cache(self, url: str, content_type: str) -> Optional[str]:
         """Download a URL and cache it locally."""
-        from tools.url_safety import is_safe_url
+        from hermes_agent.tools.security.urls import is_safe_url
 
         if not is_safe_url(url):
             raise ValueError(f"Blocked unsafe URL: {url[:80]}")
@@ -1304,7 +1304,7 @@ class QQAdapter(BasePlatformAdapter):
             is_pre_wav = True
             logger.debug("[%s] STT: using voice_wav_url (pre-converted WAV)", self._log_tag)
 
-        from tools.url_safety import is_safe_url
+        from hermes_agent.tools.security.urls import is_safe_url
         if not is_safe_url(download_url):
             logger.warning("[QQ] STT blocked unsafe URL: %s", download_url[:80])
             return None

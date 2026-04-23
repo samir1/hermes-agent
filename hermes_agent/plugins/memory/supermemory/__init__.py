@@ -17,8 +17,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from agent.memory_provider import MemoryProvider
-from tools.registry import tool_error
+from hermes_agent.agent.memory.provider import MemoryProvider
+from hermes_agent.tools.registry import tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -478,7 +478,7 @@ class SupermemoryMemoryProvider(MemoryProvider):
         _save_supermemory_config(sanitized, hermes_home)
 
     def initialize(self, session_id: str, **kwargs) -> None:
-        from hermes_constants import get_hermes_home
+        from hermes_agent.constants import get_hermes_home
         self._hermes_home = kwargs.get("hermes_home") or str(get_hermes_home())
         self._session_id = session_id
         self._turn_count = 0

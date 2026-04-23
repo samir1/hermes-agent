@@ -26,7 +26,7 @@ import logging
 import os
 import shutil
 from pathlib import Path
-from hermes_constants import get_hermes_home
+from hermes_agent.constants import get_hermes_home
 from typing import Dict, List, Tuple
 
 logger = logging.getLogger(__name__)
@@ -46,7 +46,8 @@ def _get_bundled_dir() -> Path:
     env_override = os.getenv("HERMES_BUNDLED_SKILLS")
     if env_override:
         return Path(env_override)
-    return Path(__file__).parent.parent / "skills"
+    import hermes_agent
+    return Path(hermes_agent.__file__).parent.parent / "skills"
 
 
 def _read_manifest() -> Dict[str, str]:
@@ -399,7 +400,8 @@ def reset_bundled_skill(name: str, restore: bool = False) -> dict:
     return {"ok": True, "action": action, "message": message, "synced": synced}
 
 
-if __name__ == "__main__":
+def main():
+    """CLI entry point for hermes-skills-sync console_script."""
     print("Syncing bundled skills into ~/.hermes/skills/ ...")
     result = sync_skills(quiet=False)
     parts = [
@@ -412,3 +414,7 @@ if __name__ == "__main__":
     if result["cleaned"]:
         parts.append(f"{len(result['cleaned'])} cleaned from manifest")
     print(f"\nDone: {', '.join(parts)}. {result['total_bundled']} total bundled.")
+
+
+if __name__ == "__main__":
+    main()

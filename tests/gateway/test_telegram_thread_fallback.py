@@ -16,8 +16,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from gateway.config import PlatformConfig, Platform
-from gateway.platforms.base import SendResult
+from hermes_agent.gateway.config import PlatformConfig, Platform
+from hermes_agent.gateway.platforms.base import SendResult
 
 
 # ── Fake telegram.error hierarchy ──────────────────────────────────────
@@ -85,7 +85,7 @@ def _inject_fake_telegram(monkeypatch):
 
 
 def _make_adapter():
-    from gateway.platforms.telegram import TelegramAdapter
+    from hermes_agent.gateway.platforms.telegram import TelegramAdapter
 
     config = PlatformConfig(enabled=True, token="fake-token")
     adapter = object.__new__(TelegramAdapter)
@@ -106,7 +106,7 @@ def _make_adapter():
 
 def test_forum_general_topic_without_message_thread_id_keeps_thread_context():
     """Forum General-topic messages should keep synthetic thread context."""
-    from gateway.platforms import telegram as telegram_mod
+    from hermes_agent.gateway.platforms import telegram as telegram_mod
 
     adapter = _make_adapter()
     message = SimpleNamespace(

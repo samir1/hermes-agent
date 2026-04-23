@@ -7,7 +7,7 @@ text-based numbered fallback for terminals without curses support.
 import sys
 from typing import Callable, List, Optional, Set
 
-from hermes_cli.colors import Colors, color
+from hermes_agent.cli.ui.colors import Colors, color
 
 
 def flush_stdin() -> None:

@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 import pytest
 
-import hermes_logging
+import hermes_agent.logging
 
 
 @pytest.fixture(autouse=True)
@@ -265,7 +265,7 @@ class TestGatewayMode:
         """gateway.log captures records from gateway.* loggers."""
         hermes_logging.setup_logging(hermes_home=hermes_home, mode="gateway")
 
-        gw_logger = logging.getLogger("gateway.platforms.telegram")
+        gw_logger = logging.getLogger("hermes_agent.gateway.platforms.telegram")
         gw_logger.info("telegram connected")
 
         for h in logging.getLogger().handlers:
@@ -279,10 +279,10 @@ class TestGatewayMode:
         """gateway.log does NOT capture records from tools.*, agent.*, etc."""
         hermes_logging.setup_logging(hermes_home=hermes_home, mode="gateway")
 
-        tool_logger = logging.getLogger("tools.terminal_tool")
+        tool_logger = logging.getLogger("hermes_agent.tools.terminal")
         tool_logger.info("running command")
 
-        agent_logger = logging.getLogger("agent.context_compressor")
+        agent_logger = logging.getLogger("hermes_agent.agent.context.compressor")
         agent_logger.info("compressing context")
 
         for h in logging.getLogger().handlers:
@@ -298,8 +298,8 @@ class TestGatewayMode:
         """agent.log (catch-all) still receives gateway AND tool records."""
         hermes_logging.setup_logging(hermes_home=hermes_home, mode="gateway")
 
-        gw_logger = logging.getLogger("gateway.run")
-        file_logger = logging.getLogger("tools.file_tools")
+        gw_logger = logging.getLogger("hermes_agent.gateway.run")
+        file_logger = logging.getLogger("hermes_agent.tools.files.tools")
         # Ensure propagation and levels are clean (cross-test pollution defense)
         gw_logger.propagate = True
         file_logger.propagate = True
@@ -463,37 +463,37 @@ class TestComponentFilter:
     def test_passes_matching_prefix(self):
         f = hermes_logging._ComponentFilter(("gateway",))
         record = logging.LogRecord(
-            "gateway.run", logging.INFO, "", 0, "msg", (), None
+            "hermes_agent.gateway.run", logging.INFO, "", 0, "msg", (), None
         )
         assert f.filter(record) is True
 
     def test_passes_nested_matching_prefix(self):
         f = hermes_logging._ComponentFilter(("gateway",))
         record = logging.LogRecord(
-            "gateway.platforms.telegram", logging.INFO, "", 0, "msg", (), None
+            "hermes_agent.gateway.platforms.telegram", logging.INFO, "", 0, "msg", (), None
         )
         assert f.filter(record) is True
 
     def test_blocks_non_matching(self):
         f = hermes_logging._ComponentFilter(("gateway",))
         record = logging.LogRecord(
-            "tools.terminal_tool", logging.INFO, "", 0, "msg", (), None
+            "hermes_agent.tools.terminal", logging.INFO, "", 0, "msg", (), None
         )
         assert f.filter(record) is False
 
     def test_multiple_prefixes(self):
-        f = hermes_logging._ComponentFilter(("agent", "run_agent", "model_tools"))
+        f = hermes_logging._ComponentFilter(("agent", "hermes_agent.agent.loop", "hermes_agent.tools.dispatch"))
         assert f.filter(logging.LogRecord(
-            "agent.compressor", logging.INFO, "", 0, "", (), None
+            "hermes_agent.agent.compressor", logging.INFO, "", 0, "", (), None
         ))
         assert f.filter(logging.LogRecord(
-            "run_agent", logging.INFO, "", 0, "", (), None
+            "hermes_agent.agent.loop", logging.INFO, "", 0, "", (), None
         ))
         assert f.filter(logging.LogRecord(
-            "model_tools", logging.INFO, "", 0, "", (), None
+            "hermes_agent.tools.dispatch", logging.INFO, "", 0, "", (), None
         ))
         assert not f.filter(logging.LogRecord(
-            "tools.browser", logging.INFO, "", 0, "", (), None
+            "hermes_agent.tools.browser", logging.INFO, "", 0, "", (), None
         ))
 
 
@@ -501,25 +501,24 @@ class TestComponentPrefixes:
     """COMPONENT_PREFIXES covers the expected components."""
 
     def test_gateway_prefix(self):
-        assert "gateway" in hermes_logging.COMPONENT_PREFIXES
-        assert ("gateway",) == hermes_logging.COMPONENT_PREFIXES["gateway"]
+        assert "hermes_agent.gateway" in hermes_logging.COMPONENT_PREFIXES
+        assert ("hermes_agent.gateway",) == hermes_logging.COMPONENT_PREFIXES["gateway"]
 
     def test_agent_prefix(self):
         prefixes = hermes_logging.COMPONENT_PREFIXES["agent"]
         assert "agent" in prefixes
-        assert "run_agent" in prefixes
-        assert "model_tools" in prefixes
+        assert "hermes_agent.agent.loop" in prefixes
+        assert "hermes_agent.tools.dispatch" in prefixes
 
     def test_tools_prefix(self):
-        assert ("tools",) == hermes_logging.COMPONENT_PREFIXES["tools"]
+        assert ("hermes_agent.tools",) == hermes_logging.COMPONENT_PREFIXES["tools"]
 
     def test_cli_prefix(self):
         prefixes = hermes_logging.COMPONENT_PREFIXES["cli"]
-        assert "hermes_cli" in prefixes
-        assert "cli" in prefixes
+        assert "hermes_agent.cli" in prefixes
 
     def test_cron_prefix(self):
-        assert ("cron",) == hermes_logging.COMPONENT_PREFIXES["cron"]
+        assert ("hermes_agent.cron",) == hermes_logging.COMPONENT_PREFIXES["cron"]
 
 
 class TestSetupVerboseLogging:
@@ -662,7 +661,7 @@ class TestAddRotatingHandler:
 
         old_umask = os.umask(0o022)
         try:
-            with patch("hermes_cli.config.is_managed", return_value=True):
+            with patch("hermes_agent.cli.config.is_managed", return_value=True):
                 hermes_logging._add_rotating_handler(
                     logger, log_path,
                     level=logging.INFO, max_bytes=1024, backup_count=1,
@@ -686,7 +685,7 @@ class TestAddRotatingHandler:
 
         old_umask = os.umask(0o022)
         try:
-            with patch("hermes_cli.config.is_managed", return_value=True):
+            with patch("hermes_agent.cli.config.is_managed", return_value=True):
                 hermes_logging._add_rotating_handler(
                     logger, log_path,
                     level=logging.INFO, max_bytes=1, backup_count=1,

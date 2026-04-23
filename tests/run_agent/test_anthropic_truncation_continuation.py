@@ -51,7 +51,7 @@ class TestTruncatedAnthropicResponseNormalization:
 
     def test_text_only_truncation_produces_text_content_no_tool_calls(self):
         """Pure-text Anthropic truncation → continuation path should fire."""
-        from agent.anthropic_adapter import normalize_anthropic_response
+        from hermes_agent.providers.anthropic_adapter import normalize_anthropic_response
 
         response = _make_anthropic_response(
             [_make_anthropic_text_block("partial response that was cut off")]
@@ -71,7 +71,7 @@ class TestTruncatedAnthropicResponseNormalization:
 
     def test_truncated_tool_call_produces_tool_calls(self):
         """Tool-use truncation → tool-call retry path should fire."""
-        from agent.anthropic_adapter import normalize_anthropic_response
+        from hermes_agent.providers.anthropic_adapter import normalize_anthropic_response
 
         response = _make_anthropic_response(
             [
@@ -89,7 +89,7 @@ class TestTruncatedAnthropicResponseNormalization:
 
     def test_empty_content_does_not_crash(self):
         """Empty response.content — defensive: treat as a truncation with no text."""
-        from agent.anthropic_adapter import normalize_anthropic_response
+        from hermes_agent.providers.anthropic_adapter import normalize_anthropic_response
 
         response = _make_anthropic_response([])
         msg, finish = normalize_anthropic_response(response)

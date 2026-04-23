@@ -5,8 +5,8 @@ import os
 import pytest
 from pathlib import Path
 
-from gateway.config import PlatformConfig
-from gateway.platforms.webhook import WebhookAdapter, _DYNAMIC_ROUTES_FILENAME
+from hermes_agent.gateway.config import PlatformConfig
+from hermes_agent.gateway.platforms.webhook import WebhookAdapter, _DYNAMIC_ROUTES_FILENAME
 
 
 def _make_adapter(routes=None, extra=None):

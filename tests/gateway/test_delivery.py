@@ -1,8 +1,8 @@
 """Tests for the delivery routing module."""
 
-from gateway.config import Platform
-from gateway.delivery import DeliveryTarget
-from gateway.session import SessionSource
+from hermes_agent.gateway.config import Platform
+from hermes_agent.gateway.delivery import DeliveryTarget
+from hermes_agent.gateway.session import SessionSource
 
 
 class TestParseTargetPlatformChat:

@@ -39,7 +39,7 @@ import re
 import shutil
 import tempfile
 from pathlib import Path
-from hermes_constants import get_hermes_home, display_hermes_home
+from hermes_agent.constants import get_hermes_home, display_hermes_home
 from typing import Dict, Any, Optional, Tuple
 
 logger = logging.getLogger(__name__)
@@ -47,7 +47,7 @@ logger = logging.getLogger(__name__)
 # Import security scanner — agent-created skills get the same scrutiny as
 # community hub installs.
 try:
-    from tools.skills_guard import scan_skill, should_allow_install, format_scan_report
+    from hermes_agent.tools.skills.guard import scan_skill, should_allow_install, format_scan_report
     _GUARD_AVAILABLE = True
 except ImportError:
     _GUARD_AVAILABLE = False
@@ -216,7 +216,7 @@ def _find_skill(name: str) -> Optional[Dict[str, Any]]:
     external dirs configured via skills.external_dirs.  Returns
     {"path": Path} or None.
     """
-    from agent.skill_utils import get_all_skills_dirs
+    from hermes_agent.agent.skill_utils import get_all_skills_dirs
     for skills_dir in get_all_skills_dirs():
         if not skills_dir.exists():
             continue
@@ -231,7 +231,7 @@ def _validate_file_path(file_path: str) -> Optional[str]:
     Validate a file path for write_file/remove_file.
     Must be under an allowed subdirectory and not escape the skill dir.
     """
-    from tools.path_security import has_traversal_component
+    from hermes_agent.tools.security.paths import has_traversal_component
 
     if not file_path:
         return "file_path is required."
@@ -256,7 +256,7 @@ def _validate_file_path(file_path: str) -> Optional[str]:
 
 def _resolve_skill_target(skill_dir: Path, file_path: str) -> Tuple[Optional[Path], Optional[str]]:
     """Resolve a supporting-file path and ensure it stays within the skill directory."""
-    from tools.path_security import validate_within_dir
+    from hermes_agent.tools.security.paths import validate_within_dir
 
     target = skill_dir / file_path
     error = validate_within_dir(target, skill_dir)
@@ -441,7 +441,7 @@ def _patch_skill(
     # This handles whitespace normalization, indentation differences,
     # escape sequences, and block-anchor matching — saving the agent
     # from exact-match failures on minor formatting mismatches.
-    from tools.fuzzy_match import fuzzy_find_and_replace
+    from hermes_agent.tools.fuzzy_match import fuzzy_find_and_replace
 
     new_content, match_count, _strategy, match_error = fuzzy_find_and_replace(
         content, old_string, new_string, replace_all
@@ -451,7 +451,7 @@ def _patch_skill(
         preview = content[:500] + ("..." if len(content) > 500 else "")
         err_msg = match_error
         try:
-            from tools.fuzzy_match import format_no_match_hint
+            from hermes_agent.tools.fuzzy_match import format_no_match_hint
             err_msg += format_no_match_hint(match_error, match_count, old_string, content)
         except Exception:
             pass
@@ -672,7 +672,7 @@ def skill_manage(
 
     if result.get("success"):
         try:
-            from agent.prompt_builder import clear_skills_system_prompt_cache
+            from hermes_agent.agent.prompt_builder import clear_skills_system_prompt_cache
             clear_skills_system_prompt_cache(clear_snapshot=True)
         except Exception:
             pass
@@ -775,7 +775,7 @@ SKILL_MANAGE_SCHEMA = {
 
 
 # --- Registry ---
-from tools.registry import registry, tool_error
+from hermes_agent.tools.registry import registry, tool_error
 
 registry.register(
     name="skill_manage",

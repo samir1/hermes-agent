@@ -21,11 +21,11 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from tools.budget_config import BudgetConfig
+    from hermes_agent.tools.budget_config import BudgetConfig
 
-from model_tools import handle_function_call
-from tools.terminal_tool import get_active_env
-from tools.tool_result_storage import maybe_persist_tool_result, enforce_turn_budget
+from hermes_agent.tools.dispatch import handle_function_call
+from hermes_agent.tools.terminal import get_active_env
+from hermes_agent.tools.result_storage import maybe_persist_tool_result, enforce_turn_budget
 
 # Thread pool for running sync tool calls that internally use asyncio.run()
 # (e.g., the Modal/Docker/Daytona terminal backends). Running them in a separate
@@ -164,7 +164,7 @@ class HermesAgentLoop:
                         thresholds, per-turn aggregate budget, and preview size.
                         If None, uses DEFAULT_BUDGET (current hardcoded values).
         """
-        from tools.budget_config import DEFAULT_BUDGET
+        from hermes_agent.tools.budget_config import DEFAULT_BUDGET
         self.server = server
         self.tool_schemas = tool_schemas
         self.valid_tool_names = valid_tool_names
@@ -190,7 +190,7 @@ class HermesAgentLoop:
         tool_errors: List[ToolError] = []
 
         # Per-loop TodoStore for the todo tool (ephemeral, dies with the loop)
-        from tools.todo_tool import TodoStore, todo_tool as _todo_tool
+        from hermes_agent.tools.todo import TodoStore, todo_tool as _todo_tool
         _todo_store = TodoStore()
 
         # Extract user task from first user message for browser_snapshot context

@@ -52,9 +52,9 @@ except ImportError:  # pragma: no cover - dependency gate
     modes = None  # type: ignore[assignment]
     CRYPTO_AVAILABLE = False
 
-from gateway.config import Platform, PlatformConfig
-from gateway.platforms.helpers import MessageDeduplicator
-from gateway.platforms.base import (
+from hermes_agent.gateway.config import Platform, PlatformConfig
+from hermes_agent.gateway.platforms.helpers import MessageDeduplicator
+from hermes_agent.gateway.platforms.base import (
     BasePlatformAdapter,
     MessageEvent,
     MessageType,
@@ -63,8 +63,8 @@ from gateway.platforms.base import (
     cache_document_from_bytes,
     cache_image_from_bytes,
 )
-from hermes_constants import get_hermes_home
-from utils import atomic_json_write
+from hermes_agent.constants import get_hermes_home
+from hermes_agent.utils import atomic_json_write
 
 ILINK_BASE_URL = "https://ilinkai.weixin.qq.com"
 WEIXIN_CDN_BASE_URL = "https://novac2c.cdn.weixin.qq.com/c2c"
@@ -1763,7 +1763,7 @@ class WeixinAdapter(BasePlatformAdapter):
             return SendResult(success=False, error=str(exc))
 
     async def _download_remote_media(self, url: str) -> str:
-        from tools.url_safety import is_safe_url
+        from hermes_agent.tools.security.urls import is_safe_url
 
         if not is_safe_url(url):
             raise ValueError(f"Blocked unsafe URL (SSRF protection): {url}")

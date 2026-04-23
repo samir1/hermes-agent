@@ -40,8 +40,6 @@ except ImportError:
 
 # Add project root to path for imports
 parent_dir = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(parent_dir))
-
 # Import terminal_tool module directly using importlib to avoid tools/__init__.py
 import importlib.util
 terminal_tool_path = parent_dir / "tools" / "terminal_tool.py"

@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
-from tools.skill_manager_tool import (
+from hermes_agent.tools.skills.manager import (
     _validate_name,
     _validate_category,
     _validate_frontmatter,
@@ -31,8 +31,8 @@ from tools.skill_manager_tool import (
 def _skill_dir(tmp_path):
     """Patch both SKILLS_DIR and get_all_skills_dirs so _find_skill searches
     only the temp directory — not the real ~/.hermes/skills/."""
-    with patch("tools.skill_manager_tool.SKILLS_DIR", tmp_path), \
-         patch("agent.skill_utils.get_all_skills_dirs", return_value=[tmp_path]):
+    with patch("hermes_agent.tools.skills.manager.SKILLS_DIR", tmp_path), \
+         patch("hermes_agent.agent.skill_utils.get_all_skills_dirs", return_value=[tmp_path]):
         yield
 
 
@@ -224,8 +224,8 @@ class TestCreateSkill:
         skills_dir = tmp_path / "skills"
         skills_dir.mkdir()
 
-        with patch("tools.skill_manager_tool.SKILLS_DIR", skills_dir), \
-             patch("agent.skill_utils.get_all_skills_dirs", return_value=[skills_dir]):
+        with patch("hermes_agent.tools.skills.manager.SKILLS_DIR", skills_dir), \
+             patch("hermes_agent.agent.skill_utils.get_all_skills_dirs", return_value=[skills_dir]):
             result = _create_skill("my-skill", VALID_SKILL_CONTENT, category="../escape")
 
         assert result["success"] is False
@@ -237,8 +237,8 @@ class TestCreateSkill:
         skills_dir.mkdir()
         outside = tmp_path / "outside"
 
-        with patch("tools.skill_manager_tool.SKILLS_DIR", skills_dir), \
-             patch("agent.skill_utils.get_all_skills_dirs", return_value=[skills_dir]):
+        with patch("hermes_agent.tools.skills.manager.SKILLS_DIR", skills_dir), \
+             patch("hermes_agent.agent.skill_utils.get_all_skills_dirs", return_value=[skills_dir]):
             result = _create_skill("my-skill", VALID_SKILL_CONTENT, category=str(outside))
 
         assert result["success"] is False

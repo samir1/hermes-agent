@@ -10,8 +10,8 @@ import subprocess
 import shutil
 from pathlib import Path
 
-from hermes_cli.config import get_project_root, get_hermes_home, get_env_path
-from hermes_constants import display_hermes_home
+from hermes_agent.cli.config import get_project_root, get_hermes_home, get_env_path
+from hermes_agent.constants import display_hermes_home
 
 PROJECT_ROOT = get_project_root()
 HERMES_HOME = get_hermes_home()
@@ -28,9 +28,9 @@ if _env_path.exists():
 # Also try project .env as dev fallback
 load_dotenv(PROJECT_ROOT / ".env", override=False, encoding="utf-8")
 
-from hermes_cli.colors import Colors, color
-from hermes_constants import OPENROUTER_MODELS_URL
-from utils import base_url_host_matches
+from hermes_agent.cli.ui.colors import Colors, color
+from hermes_agent.constants import OPENROUTER_MODELS_URL
+from hermes_agent.utils import base_url_host_matches
 
 
 _PROVIDER_ENV_HINTS = (
@@ -58,7 +58,7 @@ _PROVIDER_ENV_HINTS = (
 )
 
 
-from hermes_constants import is_termux as _is_termux
+from hermes_agent.constants import is_termux as _is_termux
 
 
 def _python_install_cmd() -> str:
@@ -92,7 +92,7 @@ def _has_provider_env_config(content: str) -> bool:
 def _honcho_is_configured_for_doctor() -> bool:
     """Return True when Honcho is configured, even if this process has no active session."""
     try:
-        from plugins.memory.honcho.client import HonchoClientConfig
+        from hermes_agent.plugins.memory.honcho.client import HonchoClientConfig
 
         cfg = HonchoClientConfig.from_global_config()
         return bool(cfg.enabled and (cfg.api_key or cfg.base_url))
@@ -132,7 +132,7 @@ def check_info(text: str):
 def _check_gateway_service_linger(issues: list[str]) -> None:
     """Warn when a systemd user gateway service will stop after logout."""
     try:
-        from hermes_cli.gateway import (
+        from hermes_agent.cli.gateway import (
             get_systemd_linger_status,
             get_systemd_unit_path,
             is_linux,
@@ -290,12 +290,12 @@ def run_doctor(args):
 
             known_providers: set = set()
             try:
-                from hermes_cli.auth import PROVIDER_REGISTRY
+                from hermes_agent.cli.auth.auth import PROVIDER_REGISTRY
                 known_providers = set(PROVIDER_REGISTRY.keys()) | {"openrouter", "custom", "auto"}
             except Exception:
                 pass
             try:
-                from hermes_cli.auth import resolve_provider as _resolve_provider
+                from hermes_agent.cli.auth.auth import resolve_provider as _resolve_provider
             except Exception:
                 _resolve_provider = None
 
@@ -338,7 +338,7 @@ def run_doctor(args):
             # explicitly dispatch, which would produce false positives.
             if canonical_provider and canonical_provider not in ("auto", "custom", "openrouter"):
                 try:
-                    from hermes_cli.auth import PROVIDER_REGISTRY, get_auth_status
+                    from hermes_agent.cli.auth.auth import PROVIDER_REGISTRY, get_auth_status
                     pconfig = PROVIDER_REGISTRY.get(canonical_provider)
                     if pconfig and getattr(pconfig, "auth_type", "") == "api_key":
                         status = get_auth_status(canonical_provider) or {}
@@ -379,7 +379,7 @@ def run_doctor(args):
     config_path = HERMES_HOME / 'config.yaml'
     if config_path.exists():
         try:
-            from hermes_cli.config import check_config_version, migrate_config
+            from hermes_agent.cli.config import check_config_version, migrate_config
             current_ver, latest_ver = check_config_version()
             if current_ver < latest_ver:
                 check_warn(
@@ -419,7 +419,7 @@ def run_doctor(args):
                             model_section[k] = raw_config.pop(k)
                         else:
                             raw_config.pop(k)
-                    from utils import atomic_yaml_write
+                    from hermes_agent.utils import atomic_yaml_write
                     atomic_yaml_write(config_path, raw_config)
                     check_ok("Migrated stale root-level keys into model section")
                     fixed_count += 1
@@ -430,7 +430,7 @@ def run_doctor(args):
 
         # Validate config structure (catches malformed custom_providers, etc.)
         try:
-            from hermes_cli.config import validate_config_structure
+            from hermes_agent.cli.config import validate_config_structure
             config_issues = validate_config_structure()
             if config_issues:
                 print()
@@ -454,7 +454,7 @@ def run_doctor(args):
     print(color("◆ Auth Providers", Colors.CYAN, Colors.BOLD))
 
     try:
-        from hermes_cli.auth import (
+        from hermes_agent.cli.auth.auth import (
             get_nous_auth_status,
             get_codex_auth_status,
             get_gemini_oauth_auth_status,
@@ -877,13 +877,13 @@ def run_doctor(args):
     else:
         check_warn("OpenRouter API", "(not configured)")
     
-    from hermes_cli.auth import get_anthropic_key
+    from hermes_agent.cli.auth.auth import get_anthropic_key
     anthropic_key = get_anthropic_key()
     if anthropic_key:
         print("  Checking Anthropic API...", end="", flush=True)
         try:
             import httpx
-            from agent.anthropic_adapter import _is_oauth_token, _COMMON_BETAS, _OAUTH_ONLY_BETAS
+            from hermes_agent.providers.anthropic_adapter import _is_oauth_token, _COMMON_BETAS, _OAUTH_ONLY_BETAS
 
             headers = {"anthropic-version": "2023-06-01"}
             if _is_oauth_token(anthropic_key):
@@ -951,7 +951,7 @@ def run_doctor(args):
                 # with no /v1) don't support /models.  Rewrite to the OpenAI-compat
                 # /v1 surface for health checks.
                 if _base and _base.rstrip("/").endswith("/anthropic"):
-                    from agent.auxiliary_client import _to_openai_base_url
+                    from hermes_agent.providers.auxiliary import _to_openai_base_url
                     _base = _to_openai_base_url(_base)
                 if base_url_host_matches(_base, "api.kimi.com") and _base.rstrip("/").endswith("/coding"):
                     _base = _base.rstrip("/") + "/v1"
@@ -977,7 +977,7 @@ def run_doctor(args):
     # -- AWS Bedrock --
     # Bedrock uses the AWS SDK credential chain, not API keys.
     try:
-        from agent.bedrock_adapter import has_aws_credentials, resolve_aws_auth_env_var, resolve_bedrock_region
+        from hermes_agent.providers.bedrock_adapter import has_aws_credentials, resolve_aws_auth_env_var, resolve_bedrock_region
         if has_aws_credentials():
             _auth_var = resolve_aws_auth_env_var()
             _region = resolve_bedrock_region()
@@ -1028,9 +1028,7 @@ def run_doctor(args):
     print(color("◆ Tool Availability", Colors.CYAN, Colors.BOLD))
     
     try:
-        # Add project root to path for imports
-        sys.path.insert(0, str(PROJECT_ROOT))
-        from model_tools import check_tool_availability, TOOLSET_REQUIREMENTS
+        from hermes_agent.tools.dispatch import check_tool_availability, TOOLSET_REQUIREMENTS
         
         available, unavailable = check_tool_availability()
         available, unavailable = _apply_doctor_tool_availability_overrides(available, unavailable)
@@ -1079,7 +1077,7 @@ def run_doctor(args):
     else:
         check_warn("Skills Hub directory not initialized", "(run: hermes skills list)")
 
-    from hermes_cli.config import get_env_value
+    from hermes_agent.cli.config import get_env_value
     github_token = get_env_value("GITHUB_TOKEN") or get_env_value("GH_TOKEN")
     if github_token:
         check_ok("GitHub token configured (authenticated API access)")
@@ -1107,7 +1105,7 @@ def run_doctor(args):
         check_ok("Built-in memory active", "(no external provider configured — this is fine)")
     elif _active_memory_provider == "honcho":
         try:
-            from plugins.memory.honcho.client import HonchoClientConfig, resolve_config_path
+            from hermes_agent.plugins.memory.honcho.client import HonchoClientConfig, resolve_config_path
             hcfg = HonchoClientConfig.from_global_config()
             _honcho_cfg_path = resolve_config_path()
 
@@ -1119,7 +1117,7 @@ def run_doctor(args):
                 check_fail("Honcho API key or base URL not set", "run: hermes memory setup")
                 issues.append("No Honcho API key — run 'hermes memory setup'")
             else:
-                from plugins.memory.honcho.client import get_honcho_client, reset_honcho_client
+                from hermes_agent.plugins.memory.honcho.client import get_honcho_client, reset_honcho_client
                 reset_honcho_client()
                 try:
                     get_honcho_client(hcfg)
@@ -1137,7 +1135,7 @@ def run_doctor(args):
             check_warn("Honcho check failed", str(_e))
     elif _active_memory_provider == "mem0":
         try:
-            from plugins.memory.mem0 import _load_config as _load_mem0_config
+            from hermes_agent.plugins.memory.mem0 import _load_config as _load_mem0_config
             mem0_cfg = _load_mem0_config()
             mem0_key = mem0_cfg.get("api_key", "")
             if mem0_key:
@@ -1154,7 +1152,7 @@ def run_doctor(args):
     else:
         # Generic check for other memory providers (openviking, hindsight, etc.)
         try:
-            from plugins.memory import load_memory_provider
+            from hermes_agent.plugins.memory import load_memory_provider
             _provider = load_memory_provider(_active_memory_provider)
             if _provider and _provider.is_available():
                 check_ok(f"{_active_memory_provider} provider active")
@@ -1169,7 +1167,7 @@ def run_doctor(args):
     # Profiles
     # =========================================================================
     try:
-        from hermes_cli.profiles import list_profiles, _get_wrapper_dir, profile_exists
+        from hermes_agent.cli.profiles import list_profiles, _get_wrapper_dir, profile_exists
         import re as _re
 
         named_profiles = [p for p in list_profiles() if not p.is_default]

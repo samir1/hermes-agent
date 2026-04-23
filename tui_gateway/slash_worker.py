@@ -10,8 +10,8 @@ import json
 import os
 import sys
 
-import cli as cli_mod
-from cli import HermesCLI
+import hermes_agent.cli.repl as cli_mod
+from hermes_agent.cli.repl import HermesCLI
 from rich.console import Console
 
 

@@ -15,15 +15,15 @@ import re
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
-from hermes_cli.config import (
+from hermes_agent.cli.config import (
     load_config,
     save_config,
     get_env_value,
     save_env_value,
     get_hermes_home,  # noqa: F401 — used by test mocks
 )
-from hermes_cli.colors import Colors, color
-from hermes_constants import display_hermes_home
+from hermes_agent.cli.ui.colors import Colors, color
+from hermes_agent.constants import display_hermes_home
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +61,7 @@ def _confirm(question: str, default: bool = True) -> bool:
 
 
 def _prompt(question: str, *, password: bool = False, default: str = "") -> str:
-    from hermes_cli.cli_output import prompt as _shared_prompt
+    from hermes_agent.cli.ui.output import prompt as _shared_prompt
     return _shared_prompt(question, default=default, password=password)
 
 
@@ -165,7 +165,7 @@ def _probe_single_server(
     Returns list of ``(tool_name, description)`` tuples.
     Raises on connection failure.
     """
-    from tools.mcp_tool import (
+    from hermes_agent.tools.mcp.tool import (
         _ensure_mcp_loop,
         _run_on_mcp_loop,
         _connect_server,
@@ -279,7 +279,7 @@ def cmd_mcp_add(args):
         _info(f"Starting OAuth flow for '{name}'...")
         oauth_ok = False
         try:
-            from tools.mcp_oauth_manager import get_manager
+            from hermes_agent.tools.mcp.oauth_manager import get_manager
             oauth_auth = get_manager().get_or_build_provider(name, url, None)
             if oauth_auth:
                 server_config["auth"] = "oauth"
@@ -372,7 +372,7 @@ def cmd_mcp_add(args):
 
     if choice in ("s", "select"):
         # Interactive tool selection
-        from hermes_cli.curses_ui import curses_checklist
+        from hermes_agent.cli.ui.curses import curses_checklist
 
         labels = [f"{t[0]}  —  {t[1]}" for t in tools]
         pre_selected = set(range(len(tools)))
@@ -432,7 +432,7 @@ def cmd_mcp_remove(args):
     # any provider instance cached in the current process (e.g. from an
     # earlier `hermes mcp test` in the same session) is evicted too.
     try:
-        from tools.mcp_oauth_manager import get_manager
+        from hermes_agent.tools.mcp.oauth_manager import get_manager
         get_manager().remove(name)
         _success("Cleaned up OAuth tokens")
     except Exception:
@@ -616,7 +616,7 @@ def cmd_mcp_login(args):
     # Wipe both disk and in-memory cache so the next probe forces a fresh
     # OAuth flow.
     try:
-        from tools.mcp_oauth_manager import get_manager
+        from hermes_agent.tools.mcp.oauth_manager import get_manager
         mgr = get_manager()
         mgr.remove(name)
     except Exception as exc:
@@ -700,7 +700,7 @@ def cmd_mcp_configure(args):
     print()
 
     # Interactive checklist
-    from hermes_cli.curses_ui import curses_checklist
+    from hermes_agent.cli.ui.curses import curses_checklist
 
     labels = [f"{t[0]}  —  {t[1]}" for t in all_tools]
 
@@ -742,7 +742,7 @@ def mcp_command(args):
     action = getattr(args, "mcp_action", None)
 
     if action == "serve":
-        from mcp_serve import run_mcp_server
+        from hermes_agent.tools.mcp.serve import run_mcp_server
         run_mcp_server(verbose=getattr(args, "verbose", False))
         return
 

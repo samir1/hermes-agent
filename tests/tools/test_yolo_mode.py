@@ -3,10 +3,10 @@
 import os
 import pytest
 
-import tools.approval as approval_module
-import tools.tirith_security
+import hermes_agent.tools.security.approval as approval_module
+import hermes_agent.tools.security.tirith
 
-from tools.approval import (
+from hermes_agent.tools.security.approval import (
     check_all_command_guards,
     check_dangerous_command,
     detect_dangerous_command,

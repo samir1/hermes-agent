@@ -58,12 +58,8 @@ except ImportError:
         DEFAULT_TYPE = Any
     ContextTypes = _MockContextTypes
 
-import sys
-from pathlib import Path as _Path
-sys.path.insert(0, str(_Path(__file__).resolve().parents[2]))
-
-from gateway.config import Platform, PlatformConfig
-from gateway.platforms.base import (
+from hermes_agent.gateway.config import Platform, PlatformConfig
+from hermes_agent.gateway.platforms.base import (
     BasePlatformAdapter,
     MessageEvent,
     MessageType,
@@ -79,7 +75,7 @@ from gateway.platforms.base import (
     utf16_len,
     _prefix_within_utf16_limit,
 )
-from gateway.platforms.telegram_network import (
+from hermes_agent.gateway.platforms.telegram_network import (
     TelegramFallbackTransport,
     discover_fallback_ips,
     parse_fallback_ip_env,
@@ -513,7 +509,7 @@ class TelegramAdapter(BasePlatformAdapter):
     def _persist_dm_topic_thread_id(self, chat_id: int, topic_name: str, thread_id: int) -> None:
         """Save a newly created thread_id back into config.yaml so it persists across restarts."""
         try:
-            from hermes_constants import get_hermes_home
+            from hermes_agent.constants import get_hermes_home
             config_path = get_hermes_home() / "config.yaml"
             if not config_path.exists():
                 logger.warning("[%s] Config file not found at %s, cannot persist thread_id", self.name, config_path)
@@ -868,7 +864,7 @@ class TelegramAdapter(BasePlatformAdapter):
             # gateway command there automatically adds it to the Telegram menu.
             try:
                 from telegram import BotCommand
-                from hermes_cli.commands import telegram_menu_commands
+                from hermes_agent.cli.commands import telegram_menu_commands
                 # Telegram allows up to 100 commands but has an undocumented
                 # payload size limit.  Skill descriptions are truncated to 40
                 # chars in telegram_menu_commands() to fit 100 commands safely.
@@ -1323,7 +1319,7 @@ class TelegramAdapter(BasePlatformAdapter):
             return SendResult(success=False, error="Not connected")
 
         try:
-            from hermes_cli.providers import get_label
+            from hermes_agent.cli.providers import get_label
         except ImportError:
             def get_label(slug):
                 return slug
@@ -1431,7 +1427,7 @@ class TelegramAdapter(BasePlatformAdapter):
             return
 
         try:
-            from hermes_cli.providers import get_label
+            from hermes_agent.cli.providers import get_label
         except ImportError:
             def get_label(slug):
                 return slug
@@ -1662,7 +1658,7 @@ class TelegramAdapter(BasePlatformAdapter):
 
                 # Resolve the approval — unblocks the agent thread
                 try:
-                    from tools.approval import resolve_gateway_approval
+                    from hermes_agent.tools.security.approval import resolve_gateway_approval
                     count = resolve_gateway_approval(session_key, choice)
                     logger.info(
                         "Telegram button resolved %d approval(s) for session %s (choice=%s, user=%s)",
@@ -1693,7 +1689,7 @@ class TelegramAdapter(BasePlatformAdapter):
             pass  # non-fatal if edit fails
         # Write the response file
         try:
-            from hermes_constants import get_hermes_home
+            from hermes_agent.constants import get_hermes_home
             home = get_hermes_home()
             response_path = home / ".update_response"
             tmp = response_path.with_suffix(".tmp")
@@ -1885,7 +1881,7 @@ class TelegramAdapter(BasePlatformAdapter):
         if not self._bot:
             return SendResult(success=False, error="Not connected")
 
-        from tools.url_safety import is_safe_url
+        from hermes_agent.tools.security.urls import is_safe_url
         if not is_safe_url(image_url):
             logger.warning("[%s] Blocked unsafe image URL (SSRF protection)", self.name)
             return await super().send_image(chat_id, image_url, caption, reply_to, metadata=metadata)
@@ -2452,7 +2448,7 @@ class TelegramAdapter(BasePlatformAdapter):
 
     def _text_batch_key(self, event: MessageEvent) -> str:
         """Session-scoped key for text message batching."""
-        from gateway.session import build_session_key
+        from hermes_agent.gateway.session import build_session_key
         return build_session_key(
             event.source,
             group_sessions_per_user=self.config.extra.get("group_sessions_per_user", True),
@@ -2526,7 +2522,7 @@ class TelegramAdapter(BasePlatformAdapter):
 
     def _photo_batch_key(self, event: MessageEvent, msg: Message) -> str:
         """Return a batching key for Telegram photos/albums."""
-        from gateway.session import build_session_key
+        from hermes_agent.gateway.session import build_session_key
         session_key = build_session_key(
             event.source,
             group_sessions_per_user=self.config.extra.get("group_sessions_per_user", True),
@@ -2811,7 +2807,7 @@ class TelegramAdapter(BasePlatformAdapter):
         the description by file_unique_id. For animated/video stickers, we inject
         a placeholder noting the emoji.
         """
-        from gateway.sticker_cache import (
+        from hermes_agent.gateway.sticker_cache import (
             get_cached_description,
             cache_sticker_description,
             build_sticker_injection,
@@ -2846,7 +2842,7 @@ class TelegramAdapter(BasePlatformAdapter):
             cached_path = cache_image_from_bytes(bytes(image_bytes), ext=".webp")
             logger.info("[Telegram] Analyzing sticker at %s", cached_path)
 
-            from tools.vision_tools import vision_analyze_tool
+            from hermes_agent.tools.vision import vision_analyze_tool
             result_json = await vision_analyze_tool(
                 image_url=cached_path,
                 user_prompt=STICKER_VISION_PROMPT,
@@ -2877,7 +2873,7 @@ class TelegramAdapter(BasePlatformAdapter):
         recognized without a gateway restart.
         """
         try:
-            from hermes_constants import get_hermes_home
+            from hermes_agent.constants import get_hermes_home
             config_path = get_hermes_home() / "config.yaml"
             if not config_path.exists():
                 return
@@ -3041,7 +3037,7 @@ class TelegramAdapter(BasePlatformAdapter):
             reply_to_text = message.reply_to_message.text or message.reply_to_message.caption or None
 
         # Per-channel/topic ephemeral prompt
-        from gateway.platforms.base import resolve_channel_prompt
+        from hermes_agent.gateway.platforms.base import resolve_channel_prompt
         _chat_id_str = str(chat.id)
         _channel_prompt = resolve_channel_prompt(
             self.config.extra,

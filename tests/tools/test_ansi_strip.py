@@ -5,7 +5,7 @@ ANSI codes leaking into the model's context via terminal/execute_code output.
 It must strip ALL terminal escape sequences while preserving legitimate text.
 """
 
-from tools.ansi_strip import strip_ansi
+from hermes_agent.tools.ansi_strip import strip_ansi
 
 
 class TestStripAnsiBasicSGR:

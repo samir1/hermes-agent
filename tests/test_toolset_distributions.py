@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import patch
 
-from toolset_distributions import (
+from hermes_agent.tools.distributions import (
     DISTRIBUTIONS,
     get_distribution,
     list_distributions,
@@ -17,7 +17,7 @@ class TestGetDistribution:
         dist = get_distribution("default")
         assert dist is not None
         assert "description" in dist
-        assert "toolsets" in dist
+        assert "hermes_agent.tools.toolsets" in dist
 
     def test_unknown_returns_none(self):
         assert get_distribution("nonexistent") is None
@@ -66,7 +66,7 @@ class TestSampleToolsetsFromDistribution:
         assert len(result) > 0
         # With 100% probability, all valid toolsets should be present
         dist = get_distribution("default")
-        for ts in dist["toolsets"]:
+        for ts in dist["hermes_agent.tools.toolsets"]:
             assert ts in result
 
     def test_minimal_returns_web_only(self):
@@ -90,12 +90,12 @@ class TestDistributionStructure:
     def test_all_have_required_keys(self):
         for name, dist in DISTRIBUTIONS.items():
             assert "description" in dist, f"{name} missing description"
-            assert "toolsets" in dist, f"{name} missing toolsets"
-            assert isinstance(dist["toolsets"], dict), f"{name} toolsets not a dict"
+            assert "hermes_agent.tools.toolsets" in dist, f"{name} missing toolsets"
+            assert isinstance(dist["hermes_agent.tools.toolsets"], dict), f"{name} toolsets not a dict"
 
     def test_probabilities_are_valid_range(self):
         for name, dist in DISTRIBUTIONS.items():
-            for ts_name, prob in dist["toolsets"].items():
+            for ts_name, prob in dist["hermes_agent.tools.toolsets"].items():
                 assert 0 < prob <= 100, f"{name}.{ts_name} has invalid probability {prob}"
 
     def test_descriptions_non_empty(self):

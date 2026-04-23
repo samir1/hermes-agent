@@ -25,7 +25,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from utils import atomic_json_write
+from hermes_agent.utils import atomic_json_write
 
 import requests
 
@@ -179,7 +179,7 @@ _MODELS_DEV_TO_PROVIDER: Optional[Dict[str, str]] = None
 
 def _get_cache_path() -> Path:
     """Return path to disk cache file."""
-    from hermes_constants import get_hermes_home
+    from hermes_agent.constants import get_hermes_home
     return get_hermes_home() / "models_dev_cache.json"
 
 

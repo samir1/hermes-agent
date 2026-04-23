@@ -17,10 +17,10 @@ from unittest.mock import patch, MagicMock, AsyncMock
 
 import pytest
 
-from agent.model_metadata import estimate_messages_tokens_rough
-from gateway.config import GatewayConfig, Platform, PlatformConfig
-from gateway.platforms.base import BasePlatformAdapter, MessageEvent, SendResult
-from gateway.session import SessionEntry, SessionSource
+from hermes_agent.providers.metadata import estimate_messages_tokens_rough
+from hermes_agent.gateway.config import GatewayConfig, Platform, PlatformConfig
+from hermes_agent.gateway.platforms.base import BasePlatformAdapter, MessageEvent, SendResult
+from hermes_agent.gateway.session import SessionEntry, SessionSource
 
 
 # ---------------------------------------------------------------------------
@@ -320,11 +320,11 @@ async def test_session_hygiene_messages_stay_in_originating_topic(monkeypatch, t
             self.session_id = f"{self.session_id}_compressed"
             return ([{"role": "assistant", "content": "compressed"}], None)
 
-    fake_run_agent = types.ModuleType("run_agent")
+    fake_run_agent = types.ModuleType("hermes_agent.agent.loop")
     fake_run_agent.AIAgent = FakeCompressAgent
-    monkeypatch.setitem(sys.modules, "run_agent", fake_run_agent)
+    monkeypatch.setitem(sys.modules, "hermes_agent.agent.loop", fake_run_agent)
 
-    gateway_run = importlib.import_module("gateway.run")
+    gateway_run = importlib.import_module("hermes_agent.gateway.run")
     GatewayRunner = gateway_run.GatewayRunner
 
     adapter = HygieneCaptureAdapter()
@@ -367,7 +367,7 @@ async def test_session_hygiene_messages_stay_in_originating_topic(monkeypatch, t
     monkeypatch.setattr(gateway_run, "_hermes_home", tmp_path)
     monkeypatch.setattr(gateway_run, "_resolve_runtime_agent_kwargs", lambda: {"api_key": "fake"})
     monkeypatch.setattr(
-        "agent.model_metadata.get_model_context_length",
+        "hermes_agent.providers.metadata.get_model_context_length",
         lambda *_args, **_kwargs: 100,
     )
     monkeypatch.setenv("TELEGRAM_HOME_CHANNEL", "795544298")

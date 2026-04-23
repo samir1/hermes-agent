@@ -16,20 +16,20 @@ class TestTTSProviderNullGuard:
 
     def test_explicit_null_provider_returns_default(self):
         """YAML ``tts: {provider: null}`` should fall back to default."""
-        from tools.tts_tool import _get_provider, DEFAULT_PROVIDER
+        from hermes_agent.tools.media.tts import _get_provider, DEFAULT_PROVIDER
 
         result = _get_provider({"provider": None})
         assert result == DEFAULT_PROVIDER.lower().strip()
 
     def test_missing_provider_returns_default(self):
         """No ``provider`` key at all should also return default."""
-        from tools.tts_tool import _get_provider, DEFAULT_PROVIDER
+        from hermes_agent.tools.media.tts import _get_provider, DEFAULT_PROVIDER
 
         result = _get_provider({})
         assert result == DEFAULT_PROVIDER.lower().strip()
 
     def test_valid_provider_passed_through(self):
-        from tools.tts_tool import _get_provider
+        from hermes_agent.tools.media.tts import _get_provider
 
         result = _get_provider({"provider": "OPENAI"})
         assert result == "openai"
@@ -40,18 +40,18 @@ class TestTTSProviderNullGuard:
 class TestWebBackendNullGuard:
     """tools/web_tools.py — _get_backend()"""
 
-    @patch("tools.web_tools._load_web_config", return_value={"backend": None})
+    @patch("hermes_agent.tools.web._load_web_config", return_value={"backend": None})
     def test_explicit_null_backend_does_not_crash(self, _cfg):
         """YAML ``web: {backend: null}`` should not raise AttributeError."""
-        from tools.web_tools import _get_backend
+        from hermes_agent.tools.web import _get_backend
 
         # Should not raise — the exact return depends on env key fallback
         result = _get_backend()
         assert isinstance(result, str)
 
-    @patch("tools.web_tools._load_web_config", return_value={})
+    @patch("hermes_agent.tools.web._load_web_config", return_value={})
     def test_missing_backend_does_not_crash(self, _cfg):
-        from tools.web_tools import _get_backend
+        from hermes_agent.tools.web import _get_backend
 
         result = _get_backend()
         assert isinstance(result, str)
@@ -102,7 +102,7 @@ class TestTrajectoryCompressorNullGuard:
     def test_config_loading_null_base_url_keeps_default(self):
         """YAML ``summarization: {base_url: null}`` should keep default."""
         from scripts.trajectory_compressor import CompressionConfig
-        from hermes_constants import OPENROUTER_BASE_URL
+        from hermes_agent.constants import OPENROUTER_BASE_URL
 
         config = CompressionConfig()
         data = {"summarization": {"base_url": None}}

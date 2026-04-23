@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch, AsyncMock
 from urllib.parse import quote
 
-from gateway.config import Platform, PlatformConfig
+from hermes_agent.gateway.config import Platform, PlatformConfig
 
 
 # ---------------------------------------------------------------------------
@@ -16,7 +16,7 @@ from gateway.config import Platform, PlatformConfig
 def _make_signal_adapter(monkeypatch, account="+15551234567", **extra):
     """Create a SignalAdapter with sensible test defaults."""
     monkeypatch.setenv("SIGNAL_GROUP_ALLOWED_USERS", extra.pop("group_allowed", ""))
-    from gateway.platforms.signal import SignalAdapter
+    from hermes_agent.gateway.platforms.signal import SignalAdapter
     config = PlatformConfig()
     config.enabled = True
     config.extra = {
@@ -47,7 +47,7 @@ class TestSignalConfigLoading:
         monkeypatch.setenv("SIGNAL_HTTP_URL", "http://localhost:9090")
         monkeypatch.setenv("SIGNAL_ACCOUNT", "+15551234567")
 
-        from gateway.config import GatewayConfig, _apply_env_overrides
+        from hermes_agent.gateway.config import GatewayConfig, _apply_env_overrides
         config = GatewayConfig()
         _apply_env_overrides(config)
 
@@ -61,7 +61,7 @@ class TestSignalConfigLoading:
         monkeypatch.setenv("SIGNAL_HTTP_URL", "http://localhost:9090")
         # No SIGNAL_ACCOUNT
 
-        from gateway.config import GatewayConfig, _apply_env_overrides
+        from hermes_agent.gateway.config import GatewayConfig, _apply_env_overrides
         config = GatewayConfig()
         _apply_env_overrides(config)
 
@@ -102,9 +102,9 @@ class TestSignalConnectCleanup:
         mock_client.get = AsyncMock(return_value=MagicMock(status_code=503))
         mock_client.aclose = AsyncMock()
 
-        with patch("gateway.platforms.signal.httpx.AsyncClient", return_value=mock_client), \
-             patch("gateway.status.acquire_scoped_lock", return_value=(True, None)), \
-             patch("gateway.status.release_scoped_lock") as mock_release:
+        with patch("hermes_agent.gateway.platforms.signal.httpx.AsyncClient", return_value=mock_client), \
+             patch("hermes_agent.gateway.status.acquire_scoped_lock", return_value=(True, None)), \
+             patch("hermes_agent.gateway.status.release_scoped_lock") as mock_release:
             result = await adapter.connect()
 
         assert result is False
@@ -116,68 +116,68 @@ class TestSignalConnectCleanup:
 
 class TestSignalHelpers:
     def test_redact_phone_long(self):
-        from gateway.platforms.helpers import redact_phone
+        from hermes_agent.gateway.platforms.helpers import redact_phone
         assert redact_phone("+155****4567") == "+155****4567"
 
     def test_redact_phone_short(self):
-        from gateway.platforms.helpers import redact_phone
+        from hermes_agent.gateway.platforms.helpers import redact_phone
         assert redact_phone("+12345") == "+1****45"
 
     def test_redact_phone_empty(self):
-        from gateway.platforms.helpers import redact_phone
+        from hermes_agent.gateway.platforms.helpers import redact_phone
         assert redact_phone("") == "<none>"
 
     def test_parse_comma_list(self):
-        from gateway.platforms.signal import _parse_comma_list
+        from hermes_agent.gateway.platforms.signal import _parse_comma_list
         assert _parse_comma_list("+1234, +5678 , +9012") == ["+1234", "+5678", "+9012"]
         assert _parse_comma_list("") == []
         assert _parse_comma_list("  ,  ,  ") == []
 
     def test_guess_extension_png(self):
-        from gateway.platforms.signal import _guess_extension
+        from hermes_agent.gateway.platforms.signal import _guess_extension
         assert _guess_extension(b"\x89PNG\r\n\x1a\n" + b"\x00" * 100) == ".png"
 
     def test_guess_extension_jpeg(self):
-        from gateway.platforms.signal import _guess_extension
+        from hermes_agent.gateway.platforms.signal import _guess_extension
         assert _guess_extension(b"\xff\xd8\xff\xe0" + b"\x00" * 100) == ".jpg"
 
     def test_guess_extension_pdf(self):
-        from gateway.platforms.signal import _guess_extension
+        from hermes_agent.gateway.platforms.signal import _guess_extension
         assert _guess_extension(b"%PDF-1.4" + b"\x00" * 100) == ".pdf"
 
     def test_guess_extension_zip(self):
-        from gateway.platforms.signal import _guess_extension
+        from hermes_agent.gateway.platforms.signal import _guess_extension
         assert _guess_extension(b"PK\x03\x04" + b"\x00" * 100) == ".zip"
 
     def test_guess_extension_mp4(self):
-        from gateway.platforms.signal import _guess_extension
+        from hermes_agent.gateway.platforms.signal import _guess_extension
         assert _guess_extension(b"\x00\x00\x00\x18ftypisom" + b"\x00" * 100) == ".mp4"
 
     def test_guess_extension_unknown(self):
-        from gateway.platforms.signal import _guess_extension
+        from hermes_agent.gateway.platforms.signal import _guess_extension
         assert _guess_extension(b"\x00\x01\x02\x03" * 10) == ".bin"
 
     def test_is_image_ext(self):
-        from gateway.platforms.signal import _is_image_ext
+        from hermes_agent.gateway.platforms.signal import _is_image_ext
         assert _is_image_ext(".png") is True
         assert _is_image_ext(".jpg") is True
         assert _is_image_ext(".gif") is True
         assert _is_image_ext(".pdf") is False
 
     def test_is_audio_ext(self):
-        from gateway.platforms.signal import _is_audio_ext
+        from hermes_agent.gateway.platforms.signal import _is_audio_ext
         assert _is_audio_ext(".mp3") is True
         assert _is_audio_ext(".ogg") is True
         assert _is_audio_ext(".png") is False
 
     def test_check_requirements(self, monkeypatch):
-        from gateway.platforms.signal import check_signal_requirements
+        from hermes_agent.gateway.platforms.signal import check_signal_requirements
         monkeypatch.setenv("SIGNAL_HTTP_URL", "http://localhost:8080")
         monkeypatch.setenv("SIGNAL_ACCOUNT", "+15551234567")
         assert check_signal_requirements() is True
 
     def test_render_mentions(self):
-        from gateway.platforms.signal import _render_mentions
+        from hermes_agent.gateway.platforms.signal import _render_mentions
         text = "Hello \uFFFC, how are you?"
         mentions = [{"start": 6, "length": 1, "number": "+15559999999"}]
         result = _render_mentions(text, mentions)
@@ -185,13 +185,13 @@ class TestSignalHelpers:
         assert "\uFFFC" not in result
 
     def test_render_mentions_no_mentions(self):
-        from gateway.platforms.signal import _render_mentions
+        from hermes_agent.gateway.platforms.signal import _render_mentions
         text = "Hello world"
         result = _render_mentions(text, [])
         assert result == "Hello world"
 
     def test_check_requirements_missing(self, monkeypatch):
-        from gateway.platforms.signal import check_signal_requirements
+        from hermes_agent.gateway.platforms.signal import check_signal_requirements
         monkeypatch.delenv("SIGNAL_HTTP_URL", raising=False)
         monkeypatch.delenv("SIGNAL_ACCOUNT", raising=False)
         assert check_signal_requirements() is False
@@ -231,7 +231,7 @@ class TestSignalAttachmentFetch:
 
         adapter._rpc, captured = _stub_rpc({"data": b64_data})
 
-        with patch("gateway.platforms.signal.cache_image_from_bytes", return_value="/tmp/test.png"):
+        with patch("hermes_agent.gateway.platforms.signal.cache_image_from_bytes", return_value="/tmp/test.png"):
             await adapter._fetch_attachment("attachment-123")
 
         call = captured[0]
@@ -257,7 +257,7 @@ class TestSignalAttachmentFetch:
 
         adapter._rpc, _ = _stub_rpc({"data": b64_data})
 
-        with patch("gateway.platforms.signal.cache_document_from_bytes", return_value="/tmp/test.pdf"):
+        with patch("hermes_agent.gateway.platforms.signal.cache_document_from_bytes", return_value="/tmp/test.pdf"):
             path, ext = await adapter._fetch_attachment("doc-456")
 
         assert path == "/tmp/test.pdf"
@@ -270,7 +270,7 @@ class TestSignalAttachmentFetch:
 
 class TestSignalSessionSource:
     def test_session_source_alt_fields(self):
-        from gateway.session import SessionSource
+        from hermes_agent.gateway.session import SessionSource
         source = SessionSource(
             platform=Platform.SIGNAL,
             chat_id="+15551234567",
@@ -283,7 +283,7 @@ class TestSignalSessionSource:
         assert "chat_id_alt" not in d  # None fields excluded
 
     def test_session_source_roundtrip(self):
-        from gateway.session import SessionSource
+        from hermes_agent.gateway.session import SessionSource
         source = SessionSource(
             platform=Platform.SIGNAL,
             chat_id="group:xyz",
@@ -312,30 +312,30 @@ class TestSignalPhoneRedaction:
         # whatever value was in the env then. Force the flag directly.
         # See skill: xdist-cross-test-pollution Pattern 5.
         monkeypatch.delenv("HERMES_REDACT_SECRETS", raising=False)
-        monkeypatch.setattr("agent.redact._REDACT_ENABLED", True)
+        monkeypatch.setattr("hermes_agent.agent.redact._REDACT_ENABLED", True)
 
     def test_us_number(self):
-        from agent.redact import redact_sensitive_text
+        from hermes_agent.agent.redact import redact_sensitive_text
         result = redact_sensitive_text("Call +15551234567 now")
         assert "+15551234567" not in result
         assert "+155" in result  # Prefix preserved
         assert "4567" in result  # Suffix preserved
 
     def test_uk_number(self):
-        from agent.redact import redact_sensitive_text
+        from hermes_agent.agent.redact import redact_sensitive_text
         result = redact_sensitive_text("UK: +442071838750")
         assert "+442071838750" not in result
         assert "****" in result
 
     def test_multiple_numbers(self):
-        from agent.redact import redact_sensitive_text
+        from hermes_agent.agent.redact import redact_sensitive_text
         text = "From +15551234567 to +442071838750"
         result = redact_sensitive_text(text)
         assert "+15551234567" not in result
         assert "+442071838750" not in result
 
     def test_short_number_not_matched(self):
-        from agent.redact import redact_sensitive_text
+        from hermes_agent.agent.redact import redact_sensitive_text
         result = redact_sensitive_text("Code: +12345")
         # 5 digits after + is below the 7-digit minimum
         assert "+12345" in result  # Too short to redact
@@ -348,8 +348,8 @@ class TestSignalPhoneRedaction:
 class TestSignalAuthorization:
     def test_signal_in_allowlist_maps(self):
         """Signal should be in the platform auth maps."""
-        from gateway.run import GatewayRunner
-        from gateway.config import GatewayConfig
+        from hermes_agent.gateway.run import GatewayRunner
+        from hermes_agent.gateway.config import GatewayConfig
 
         gw = GatewayRunner.__new__(GatewayRunner)
         gw.config = GatewayConfig()
@@ -729,7 +729,7 @@ class TestSignalMediaExtraction:
 
     def test_extract_media_finds_image_tag(self):
         """BasePlatformAdapter.extract_media should find MEDIA: image paths."""
-        from gateway.platforms.base import BasePlatformAdapter
+        from hermes_agent.gateway.platforms.base import BasePlatformAdapter
         media, cleaned = BasePlatformAdapter.extract_media(
             "Here's the chart.\nMEDIA:/tmp/price_graph.png"
         )
@@ -739,7 +739,7 @@ class TestSignalMediaExtraction:
 
     def test_extract_media_finds_audio_tag(self):
         """BasePlatformAdapter.extract_media should find MEDIA: audio paths."""
-        from gateway.platforms.base import BasePlatformAdapter
+        from hermes_agent.gateway.platforms.base import BasePlatformAdapter
         media, cleaned = BasePlatformAdapter.extract_media(
             "[[audio_as_voice]]\nMEDIA:/tmp/reply.ogg"
         )
@@ -750,7 +750,7 @@ class TestSignalMediaExtraction:
     def test_signal_has_all_media_methods(self, monkeypatch):
         """SignalAdapter must override all media send methods used by gateway."""
         adapter = _make_signal_adapter(monkeypatch)
-        from gateway.platforms.base import BasePlatformAdapter
+        from hermes_agent.gateway.platforms.base import BasePlatformAdapter
 
         # These methods must NOT be the base class defaults (which just send text)
         assert type(adapter).send_image_file is not BasePlatformAdapter.send_image_file

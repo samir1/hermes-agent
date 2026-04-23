@@ -24,14 +24,14 @@ import re
 import time
 from typing import Any, Dict, List, Optional
 
-from agent.auxiliary_client import call_llm
-from agent.context_engine import ContextEngine
-from agent.model_metadata import (
+from hermes_agent.providers.auxiliary import call_llm
+from hermes_agent.agent.context.engine import ContextEngine
+from hermes_agent.providers.metadata import (
     MINIMUM_CONTEXT_LENGTH,
     get_model_context_length,
     estimate_messages_tokens_rough,
 )
-from agent.redact import redact_sensitive_text
+from hermes_agent.agent.redact import redact_sensitive_text
 
 logger = logging.getLogger(__name__)
 
