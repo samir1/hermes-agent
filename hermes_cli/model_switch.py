@@ -1012,6 +1012,27 @@ def list_authenticated_providers(
     results: List[dict] = []
     seen_slugs: set = set()  # lowercase-normalized to catch case variants (#9545)
     seen_mdev_ids: set = set()  # prevent duplicate entries for aliases (e.g. kimi-coding + kimi-coding-cn)
+    hidden_provider_slugs = {
+        "nous",
+        "openrouter",
+        "ai-gateway",
+        "vercel",
+        "xiaomi",
+        "arcee",
+        "kilocode",
+        "kilo",
+        "opencode-zen",
+        "opencode",
+        "opencode-go",
+        "ollama-cloud",
+        "bedrock",
+        "copilot",
+        "github-copilot",
+        "copilot-acp",
+    }
+
+    def _is_hidden_provider(*ids: str) -> bool:
+        return any((provider_id or "").lower() in hidden_provider_slugs for provider_id in ids)
 
     data = fetch_models_dev()
 
@@ -1028,6 +1049,8 @@ def list_authenticated_providers(
 
     # --- 1. Check Hermes-mapped providers ---
     for hermes_id, mdev_id in PROVIDER_TO_MODELS_DEV.items():
+        if _is_hidden_provider(hermes_id, mdev_id):
+            continue
         # Skip aliases that map to the same models.dev provider (e.g.
         # kimi-coding and kimi-coding-cn both → kimi-for-coding).
         # The first one with valid credentials wins (#10526).
@@ -1106,6 +1129,8 @@ def list_authenticated_providers(
 
         # Resolve Hermes slug — e.g. "github-copilot" → "copilot"
         hermes_slug = _mdev_to_hermes.get(pid, pid)
+        if _is_hidden_provider(pid, hermes_slug):
+            continue
         if hermes_slug.lower() in seen_slugs:
             continue
 
@@ -1206,6 +1231,8 @@ def list_authenticated_providers(
         _canon_provs = []
 
     for _cp in _canon_provs:
+        if _is_hidden_provider(_cp.slug):
+            continue
         if _cp.slug.lower() in seen_slugs:
             continue
 
