@@ -4,7 +4,7 @@
 # transitive deps like onnxruntime that lack compatible wheels on
 # aarch64-darwin. The package and devShell still work on macOS.
 { inputs, ... }: {
-  perSystem = { pkgs, system, lib, ... }:
+  perSystem = { pkgs, system, lib, inputs', ... }:
     let
       hermes-agent = inputs.self.packages.${system}.default;
       hermesVenv = pkgs.callPackage ./python.nix {
@@ -189,6 +189,36 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
           check_blocked "config edit" ${hermes-agent}/bin/hermes config edit
 
           echo "=== All guard checks passed ==="
+          mkdir -p $out
+          echo "ok" > $out/result
+        '';
+
+        # Verify extraPythonPackages PYTHONPATH injection
+        extra-python-packages = let
+          testPkg = pkgs.python312Packages.pyyaml;
+          hermesWithExtra = pkgs.callPackage ./hermes-agent.nix {
+            inherit (inputs) uv2nix pyproject-nix pyproject-build-systems;
+            npm-lockfile-fix = inputs'.npm-lockfile-fix.packages.default;
+            extraPythonPackages = [ testPkg ];
+          };
+        in pkgs.runCommand "hermes-extra-python-packages" { } ''
+          set -e
+          echo "=== Checking extraPythonPackages PYTHONPATH injection ==="
+
+          grep -q "PYTHONPATH" ${hermesWithExtra}/bin/hermes || \
+            (echo "FAIL: PYTHONPATH not in wrapper"; exit 1)
+          echo "PASS: PYTHONPATH present in wrapper"
+
+          grep -q "${testPkg}" ${hermesWithExtra}/bin/hermes || \
+            (echo "FAIL: test package path not in PYTHONPATH"; exit 1)
+          echo "PASS: test package path found in wrapper"
+
+          echo "=== Checking base package has no PYTHONPATH ==="
+          grep -q "PYTHONPATH" ${hermes-agent}/bin/hermes && \
+            (echo "FAIL: base package should not have PYTHONPATH"; exit 1) || true
+          echo "PASS: base package clean"
+
+          echo "=== All extraPythonPackages checks passed ==="
           mkdir -p $out
           echo "ok" > $out/result
         '';
