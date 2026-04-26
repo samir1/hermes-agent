@@ -15,6 +15,7 @@ DEFAULT_CODEX_MODELS: List[str] = [
     "gpt-5.5",
     "gpt-5.4-mini",
     "gpt-5.4",
+    "gpt-5.3-codex-spark",
     "gpt-5.3-codex",
     "gpt-5.2-codex",
     "gpt-5.1-codex-max",
@@ -78,8 +79,6 @@ def _fetch_models_from_api(access_token: str) -> List[str]:
         if not isinstance(slug, str) or not slug.strip():
             continue
         slug = slug.strip()
-        if item.get("supported_in_api") is False:
-            continue
         visibility = item.get("visibility", "")
         if isinstance(visibility, str) and visibility.strip().lower() in ("hide", "hidden"):
             continue
@@ -128,8 +127,6 @@ def _read_cache_models(codex_home: Path) -> List[str]:
             if not isinstance(slug, str) or not slug.strip():
                 continue
             slug = slug.strip()
-            if item.get("supported_in_api") is False:
-                continue
             visibility = item.get("visibility")
             if isinstance(visibility, str) and visibility.strip().lower() in ("hide", "hidden"):
                 continue
