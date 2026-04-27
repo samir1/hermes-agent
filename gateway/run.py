@@ -1002,6 +1002,116 @@ class GatewayRunner:
             thread_sessions_per_user=getattr(config, "thread_sessions_per_user", False),
         )
 
+    @staticmethod
+    def _normalize_plain_text_command(text: str) -> str:
+        """Return a conservative normalized form for plain-text command matching."""
+        return re.sub(r"\s+", " ", text or "").strip().lower()
+
+    def _is_inbox_cleanup_fast_path_request(self, event: MessageEvent) -> bool:
+        """Detect Samir's exact plain-text inbox cleanup request.
+
+        This intentionally matches only the bare command so normal mail-related
+        questions still go through the conversational agent.
+        """
+        if getattr(event, "message_type", None) != MessageType.TEXT:
+            return False
+        try:
+            if event.is_command():
+                return False
+        except Exception:
+            return False
+        return self._normalize_plain_text_command(getattr(event, "text", "")) == "inbox cleanup"
+
+    def _source_allows_inbox_cleanup_fast_path(self, source: Optional[SessionSource]) -> bool:
+        """Limit the Samir-specific inbox route to the Telegram owner DM."""
+        if not source or source.platform != Platform.TELEGRAM:
+            return False
+        if source.chat_type != "dm":
+            return False
+
+        home_channel = ""
+        try:
+            if hasattr(self.config, "get_home_channel"):
+                home = self.config.get_home_channel(Platform.TELEGRAM)
+                if home and getattr(home, "chat_id", None):
+                    home_channel = str(home.chat_id).strip()
+            elif isinstance(self.config, dict):
+                platform_cfg = (self.config.get("platforms") or {}).get("telegram") or {}
+                home_cfg = platform_cfg.get("home_channel") or {}
+                home_channel = str(home_cfg.get("chat_id") or "").strip()
+        except Exception:
+            home_channel = ""
+
+        if not home_channel:
+            home_channel = os.getenv("TELEGRAM_HOME_CHANNEL", "").strip()
+        return bool(home_channel) and str(source.chat_id) == home_channel
+
+    def _build_inbox_cleanup_fast_path_prompt(self) -> str:
+        """Build the self-contained prompt for the clean inbox-cleanup coordinator."""
+        return """
+You are the clean coordinator for Samir's inbox cleanup fast path. This request
+was routed before the main Telegram session loaded or compressed history. Do not
+rely on prior chat context.
+
+Task: run Samir's inbox cleanup workflow now.
+
+Mandatory setup:
+1. Load and follow the `inbox-cleanup` skill.
+2. Load and follow the `email-triage-core` skill. Treat it as the filtering and
+   classification authority.
+3. Read the inbox-cleanup profile, shared overrides, mailbox rules, and standing
+   exclusions required by those skills.
+
+Execution requirements:
+- Read-only until Samir explicitly approves archive actions. Do not archive,
+  move, delete, label, or otherwise modify any email during this run.
+- At the start of the run, delete
+  `~/.hermes/state/inbox-cleanup/current_proposal.json` if it exists.
+- Scan INBOX only, all four configured mailboxes, last 48 hours for every
+  mailbox including Cornell.
+- Use one worker per mailbox and run all four mailbox scans in parallel.
+- Render every non-empty item in Action Needed, Report-then-archive, Keep, and
+  Archive Proposal. Do not collapse with "and N more".
+- Use full mailbox email addresses in the user-facing report. For senders, use
+  display names by default, not full sender email addresses, unless the skill
+  requires otherwise for disambiguation.
+- Store the full private archive proposal context atomically at
+  `~/.hermes/state/inbox-cleanup/current_proposal.json` after a successful
+  scan/merge. Use the fixed filename only.
+- If one or more workers fail, report the partial failure clearly and do not
+  present the result as a complete cleanup.
+- If the Telegram report is too long, split it into complete messages while
+  preserving every section and bullet.
+
+Final response: send Samir the complete inbox-cleanup report and state clearly
+that no email actions were taken.
+""".strip()
+
+    async def _handle_inbox_cleanup_fast_path(self, event: MessageEvent) -> str:
+        """Start inbox cleanup in a clean background agent before main-session load."""
+        source = event.source
+        task_id = f"inbox_cleanup_{datetime.now().strftime('%H%M%S')}_{os.urandom(3).hex()}"
+        prompt = self._build_inbox_cleanup_fast_path_prompt()
+
+        if not hasattr(self, "_background_tasks") or self._background_tasks is None:
+            self._background_tasks = set()
+
+        task = asyncio.create_task(self._run_background_task(prompt, source, task_id))
+        self._background_tasks.add(task)
+        task.add_done_callback(self._background_tasks.discard)
+
+        logger.info(
+            "plain-text fast path: started inbox cleanup coordinator task=%s platform=%s chat=%s",
+            task_id,
+            source.platform.value if source and source.platform else "unknown",
+            source.chat_id if source else "unknown",
+        )
+        return (
+            "I’m scanning all 4 inboxes now, read-only, with one worker per mailbox. "
+            "This started in a clean background coordinator, bypassing the current "
+            "chat history and compression path. I’ll send the cleanup report when it’s ready."
+        )
+
     def _resolve_session_agent_runtime(
         self,
         *,
@@ -3306,6 +3416,17 @@ class GatewayRunner:
                 _update_prompts.pop(_quick_key, None)
                 label = response_text if len(response_text) <= 20 else response_text[:20] + "…"
                 return f"✓ Sent `{label}` to the update process."
+
+        # Built-in plain-text fast paths. These bypass the active session
+        # transcript and agent preflight compression, then start a clean
+        # background coordinator for long-running workflows. Keep this after
+        # auth and /update-prompt handling, but before the active-agent guard.
+        if self._is_inbox_cleanup_fast_path_request(event):
+            if self._draining:
+                return f"⏳ Gateway is {self._status_action_gerund()} and is not accepting new work right now."
+            if not self._source_allows_inbox_cleanup_fast_path(source):
+                return "Inbox cleanup can only be run from the Telegram home DM."
+            return await self._handle_inbox_cleanup_fast_path(event)
 
         # PRIORITY handling when an agent is already running for this session.
         # Default behavior is to interrupt immediately so user text/stop messages
