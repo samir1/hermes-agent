@@ -874,7 +874,27 @@ def _build_child_agent(
     # we only deal with 'leaf' or 'orchestrator' here.
     child_depth = getattr(parent_agent, "_delegate_depth", 0) + 1
     max_spawn = _get_max_spawn_depth()
-    orchestrator_ok = _get_orchestrator_enabled() and child_depth < max_spawn
+    orchestrator_enabled = _get_orchestrator_enabled()
+    orchestrator_ok = orchestrator_enabled and child_depth < max_spawn
+    if role == "orchestrator" and not orchestrator_ok:
+        if not orchestrator_enabled:
+            logger.warning(
+                "role='orchestrator' requested, but "
+                "delegation.orchestrator_enabled=false; forcing role='leaf'."
+            )
+        else:
+            required_depth = min(_MAX_SPAWN_DEPTH_CAP, child_depth + 1)
+            logger.warning(
+                "role='orchestrator' requested for child_depth=%d, but "
+                "max_spawn_depth=%d puts that child at the depth floor; "
+                "forcing role='leaf'. Set delegation.max_spawn_depth: %d "
+                "or higher in config.yaml to allow this orchestrator to "
+                "spawn workers (cap: %d).",
+                child_depth,
+                max_spawn,
+                required_depth,
+                _MAX_SPAWN_DEPTH_CAP,
+            )
     effective_role = role if (role == "orchestrator" and orchestrator_ok) else "leaf"
 
     # ── Subagent identity (stable across events, 0-indexed for TUI) ─────
@@ -2321,8 +2341,12 @@ DELEGATE_TASK_SCHEMA = {
         "- Orchestrator subagents (role='orchestrator') retain "
         "delegate_task so they can spawn their own workers, but still "
         "cannot use clarify, memory, send_message, or execute_code. "
-        "Orchestrators are bounded by delegation.max_spawn_depth "
-        "(default 2) and can be disabled globally via "
+        "Orchestrators are bounded by delegation.max_spawn_depth. "
+        "max_spawn_depth default is 1 (flat): first-level children are "
+        "leaves even if role='orchestrator'. Set "
+        "delegation.max_spawn_depth: 2 to allow orchestrator children "
+        "to spawn leaf workers, or 3 for another orchestration layer. "
+        "Orchestrators can be disabled globally via "
         "delegation.orchestrator_enabled=false.\n"
         "- Each subagent gets its own terminal session (separate working directory and state).\n"
         "- Results are always returned as an array, one entry per task."
