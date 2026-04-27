@@ -205,3 +205,183 @@ class TestGatewayQuickCommands:
         event = self._make_event("limits")
         result = await runner._handle_message(event)
         assert result == "ok"
+
+    @pytest.mark.asyncio
+    async def test_plain_text_inbox_cleanup_bypasses_main_agent_session(self):
+        """Exact plain-text `inbox cleanup` must route before session history or compression."""
+        from gateway.config import GatewayConfig, HomeChannel, Platform, PlatformConfig
+        from gateway.platforms.base import MessageEvent, MessageType
+        from gateway.run import GatewayRunner
+        from gateway.session import SessionSource
+
+        runner = GatewayRunner.__new__(GatewayRunner)
+        runner.config = GatewayConfig()
+        runner.config.platforms[Platform.TELEGRAM] = PlatformConfig()
+        runner.config.platforms[Platform.TELEGRAM].home_channel = HomeChannel(
+            platform=Platform.TELEGRAM,
+            chat_id="123",
+            name="Home",
+        )
+        runner._running_agents = {}
+        runner._running_agents_ts = {}
+        runner._pending_messages = {}
+        runner._update_prompt_pending = {}
+        runner._draining = False
+        runner._busy_input_mode = "queue"
+        runner._background_tasks = set()
+        runner._is_user_authorized = MagicMock(return_value=True)
+        runner._handle_inbox_cleanup_fast_path = AsyncMock(return_value="inbox cleanup started")
+        runner._handle_message_with_agent = AsyncMock(return_value="main agent should not run")
+
+        event = MessageEvent(
+            text="inbox cleanup",
+            message_type=MessageType.TEXT,
+            source=SessionSource(
+                platform=Platform.TELEGRAM,
+                chat_id="123",
+                chat_type="dm",
+                user_id="u1",
+                user_name="Samir",
+            ),
+        )
+
+        result = await runner._handle_message(event)
+
+        assert result == "inbox cleanup started"
+        runner._handle_inbox_cleanup_fast_path.assert_awaited_once()
+        runner._handle_message_with_agent.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_plain_text_inbox_cleanup_accepts_normalized_spacing_and_case(self):
+        from gateway.config import GatewayConfig, HomeChannel, Platform, PlatformConfig
+        from gateway.platforms.base import MessageEvent, MessageType
+        from gateway.run import GatewayRunner
+        from gateway.session import SessionSource
+
+        runner = GatewayRunner.__new__(GatewayRunner)
+        runner.config = GatewayConfig()
+        runner.config.platforms[Platform.TELEGRAM] = PlatformConfig()
+        runner.config.platforms[Platform.TELEGRAM].home_channel = HomeChannel(
+            platform=Platform.TELEGRAM,
+            chat_id="123",
+            name="Home",
+        )
+        runner._running_agents = {}
+        runner._running_agents_ts = {}
+        runner._pending_messages = {}
+        runner._update_prompt_pending = {}
+        runner._draining = False
+        runner._busy_input_mode = "queue"
+        runner._background_tasks = set()
+        runner._is_user_authorized = MagicMock(return_value=True)
+        runner._handle_inbox_cleanup_fast_path = AsyncMock(return_value="inbox cleanup started")
+        runner._handle_message_with_agent = AsyncMock(return_value="main agent should not run")
+
+        event = MessageEvent(
+            text="  Inbox   Cleanup  ",
+            message_type=MessageType.TEXT,
+            source=SessionSource(
+                platform=Platform.TELEGRAM,
+                chat_id="123",
+                chat_type="dm",
+                user_id="u1",
+                user_name="Samir",
+            ),
+        )
+
+        result = await runner._handle_message(event)
+
+        assert result == "inbox cleanup started"
+        runner._handle_inbox_cleanup_fast_path.assert_awaited_once()
+        runner._handle_message_with_agent.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_plain_text_inbox_cleanup_bypasses_even_when_session_running(self):
+        from gateway.config import GatewayConfig, HomeChannel, Platform, PlatformConfig
+        from gateway.platforms.base import MessageEvent, MessageType
+        from gateway.run import GatewayRunner
+        from gateway.session import SessionSource
+
+        runner = GatewayRunner.__new__(GatewayRunner)
+        runner.config = GatewayConfig()
+        runner.config.platforms[Platform.TELEGRAM] = PlatformConfig()
+        runner.config.platforms[Platform.TELEGRAM].home_channel = HomeChannel(
+            platform=Platform.TELEGRAM,
+            chat_id="123",
+            name="Home",
+        )
+        runner._running_agents = {}
+        runner._running_agents_ts = {}
+        runner._pending_messages = {}
+        runner._update_prompt_pending = {}
+        runner._draining = False
+        runner._busy_input_mode = "queue"
+        runner._background_tasks = set()
+        runner._is_user_authorized = MagicMock(return_value=True)
+        runner._handle_inbox_cleanup_fast_path = AsyncMock(return_value="inbox cleanup started")
+        runner._handle_message_with_agent = AsyncMock(return_value="main agent should not run")
+
+        source = SessionSource(
+            platform=Platform.TELEGRAM,
+            chat_id="123",
+            chat_type="dm",
+            user_id="u1",
+            user_name="Samir",
+        )
+        runner._running_agents[runner._session_key_for_source(source)] = object()
+
+        event = MessageEvent(
+            text="inbox cleanup",
+            message_type=MessageType.TEXT,
+            source=source,
+        )
+
+        result = await runner._handle_message(event)
+
+        assert result == "inbox cleanup started"
+        runner._handle_inbox_cleanup_fast_path.assert_awaited_once()
+        runner._handle_message_with_agent.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_plain_text_inbox_cleanup_restricted_to_telegram_home_dm(self):
+        from gateway.config import GatewayConfig, HomeChannel, Platform, PlatformConfig
+        from gateway.platforms.base import MessageEvent, MessageType
+        from gateway.run import GatewayRunner
+        from gateway.session import SessionSource
+
+        runner = GatewayRunner.__new__(GatewayRunner)
+        runner.config = GatewayConfig()
+        runner.config.platforms[Platform.TELEGRAM] = PlatformConfig()
+        runner.config.platforms[Platform.TELEGRAM].home_channel = HomeChannel(
+            platform=Platform.TELEGRAM,
+            chat_id="123",
+            name="Home",
+        )
+        runner._running_agents = {}
+        runner._running_agents_ts = {}
+        runner._pending_messages = {}
+        runner._update_prompt_pending = {}
+        runner._draining = False
+        runner._busy_input_mode = "queue"
+        runner._background_tasks = set()
+        runner._is_user_authorized = MagicMock(return_value=True)
+        runner._handle_inbox_cleanup_fast_path = AsyncMock(return_value="inbox cleanup started")
+        runner._handle_message_with_agent = AsyncMock(return_value="main agent should not run")
+
+        event = MessageEvent(
+            text="inbox cleanup",
+            message_type=MessageType.TEXT,
+            source=SessionSource(
+                platform=Platform.TELEGRAM,
+                chat_id="999",
+                chat_type="dm",
+                user_id="u2",
+                user_name="Other",
+            ),
+        )
+
+        result = await runner._handle_message(event)
+
+        assert result == "Inbox cleanup can only be run from the Telegram home DM."
+        runner._handle_inbox_cleanup_fast_path.assert_not_awaited()
+        runner._handle_message_with_agent.assert_not_awaited()
