@@ -125,8 +125,8 @@ _SUBAGENT_TOOLSETS = sorted(
 )
 _TOOLSET_LIST_STR = ", ".join(f"'{n}'" for n in _SUBAGENT_TOOLSETS)
 
-_DEFAULT_MAX_CONCURRENT_CHILDREN = 3
-MAX_DEPTH = 1  # flat by default: parent (0) -> child (1); grandchild rejected unless max_spawn_depth raised.
+_DEFAULT_MAX_CONCURRENT_CHILDREN = 4
+MAX_DEPTH = 2  # parent (0) -> orchestrator child (1) -> worker grandchildren (2) by default.
 # Configurable depth cap consulted by _get_max_spawn_depth; MAX_DEPTH
 # stays as the default fallback and is still the symbol tests import.
 _MIN_SPAWN_DEPTH = 1
@@ -391,14 +391,15 @@ def _get_max_spawn_depth() -> int:
     """Read delegation.max_spawn_depth from config, clamped to [1, 3].
 
     depth 0 = parent agent.  max_spawn_depth = N means agents at depths
-    0..N-1 can spawn; depth N is the leaf floor.  Default 1 is flat:
-    parent spawns children (depth 1), depth-1 children cannot spawn
-    (blocked by this guard AND, for leaf children, by the delegation
-    toolset strip in _strip_blocked_tools).
+    0..N-1 can spawn; depth N is the leaf floor.  Default 2 allows
+    one orchestrator layer:
+    parent spawns children (depth 1), and depth-1 orchestrator children
+    can spawn worker grandchildren (depth 2) by default (enforced via
+    the delegate toolset strip in _strip_blocked_tools).
 
-    Raise to 2 or 3 to unlock nested orchestration. role="orchestrator"
-    removes the toolset strip for depth-1 children when
-    max_spawn_depth >= 2, enabling them to spawn their own workers.
+    role="orchestrator" removes the toolset strip for depth-1 children
+    when max_spawn_depth >= 2, enabling them to spawn their own workers.
+    Set to 3 to unlock another orchestration layer.
     """
     cfg = _load_config()
     val = cfg.get("max_spawn_depth")
@@ -2323,7 +2324,7 @@ DELEGATE_TASK_SCHEMA = {
         "never enter your context window.\n\n"
         "TWO MODES (one of 'goal' or 'tasks' is required):\n"
         "1. Single task: provide 'goal' (+ optional context, toolsets)\n"
-        "2. Batch (parallel): provide 'tasks' array with up to delegation.max_concurrent_children items (default 3, configurable via config.yaml, no hard ceiling). "
+        "2. Batch (parallel): provide 'tasks' array with up to delegation.max_concurrent_children items (default 4, configurable via config.yaml, no hard ceiling). "
         "All run concurrently and results are returned together. Nested delegation requires role='orchestrator' and delegation.max_spawn_depth >= 2.\n\n"
         "WHEN TO USE delegate_task:\n"
         "- Reasoning-heavy subtasks (debugging, code review, research synthesis)\n"
@@ -2342,10 +2343,9 @@ DELEGATE_TASK_SCHEMA = {
         "delegate_task so they can spawn their own workers, but still "
         "cannot use clarify, memory, send_message, or execute_code. "
         "Orchestrators are bounded by delegation.max_spawn_depth. "
-        "max_spawn_depth default is 1 (flat): first-level children are "
-        "leaves even if role='orchestrator'. Set "
-        "delegation.max_spawn_depth: 2 to allow orchestrator children "
-        "to spawn leaf workers, or 3 for another orchestration layer. "
+        "max_spawn_depth default is 2: first-level orchestrator children "
+        "can spawn leaf workers. Set delegation.max_spawn_depth: 3 "
+        "to allow another orchestration layer. "
         "Orchestrators can be disabled globally via "
         "delegation.orchestrator_enabled=false.\n"
         "- Each subagent gets its own terminal session (separate working directory and state).\n"
@@ -2415,10 +2415,10 @@ DELEGATE_TASK_SCHEMA = {
                     "required": ["goal"],
                 },
                 # No maxItems — the runtime limit is configurable via
-                # delegation.max_concurrent_children (default 3) and
+                # delegation.max_concurrent_children (default 4) and
                 # enforced with a clear error in delegate_task().
                 "description": (
-                    "Batch mode: tasks to run in parallel (limit configurable via delegation.max_concurrent_children, default 3). Each gets "
+                    "Batch mode: tasks to run in parallel (limit configurable via delegation.max_concurrent_children, default 4). Each gets "
                     "its own subagent with isolated context and terminal session. "
                     "When provided, top-level goal/context/toolsets are ignored."
                 ),
