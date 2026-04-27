@@ -1804,6 +1804,14 @@ class TestOrchestratorRoleSchema(unittest.TestCase):
         self.assertIn("role", task_props)
         self.assertEqual(task_props["role"]["enum"], ["leaf", "orchestrator"])
 
+    def test_schema_documents_actual_flat_depth_default(self):
+        """Model-facing help must match the runtime max_spawn_depth default."""
+        from tools.delegate_tool import DELEGATE_TASK_SCHEMA
+        description = DELEGATE_TASK_SCHEMA["description"]
+        self.assertIn("max_spawn_depth default is 1", description)
+        self.assertIn("Set delegation.max_spawn_depth: 2", description)
+        self.assertNotIn("default 2", description)
+
 
 # Sentinel used to distinguish "role kwarg omitted" from "role=None".
 _SENTINEL = object()
@@ -1921,6 +1929,37 @@ class TestOrchestratorRoleBehavior(unittest.TestCase):
                 kwargs = MockAgent.call_args[1]
                 self.assertNotIn("delegation", kwargs["enabled_toolsets"])
                 self.assertEqual(mock_child._delegate_role, "leaf")
+
+    @patch("tools.delegate_tool._resolve_delegation_credentials")
+    @patch("tools.delegate_tool._load_config",
+           return_value={"max_spawn_depth": 1})
+    def test_orchestrator_depth_downgrade_logs_actionable_warning(
+        self, mock_cfg, mock_creds
+    ):
+        """A requested orchestrator that is depth-limited must explain why.
+
+        Without this, the child silently becomes a leaf and later reports that
+        delegate_task is unavailable, which makes the real config problem hard
+        to diagnose.
+        """
+        mock_creds.return_value = {
+            "provider": None, "base_url": None,
+            "api_key": None, "api_mode": None, "model": None,
+        }
+        parent = _make_mock_parent(depth=0)
+        parent.enabled_toolsets = ["terminal", "delegation"]
+        with patch("run_agent.AIAgent") as MockAgent:
+            mock_child = _make_role_mock_child()
+            MockAgent.return_value = mock_child
+            with self.assertLogs("tools.delegate_tool", level="WARNING") as cm:
+                delegate_task(goal="test", role="orchestrator",
+                              parent_agent=parent)
+        warning_text = "\n".join(cm.output)
+        self.assertIn("role='orchestrator' requested", warning_text)
+        self.assertIn("child_depth=1", warning_text)
+        self.assertIn("max_spawn_depth=1", warning_text)
+        self.assertIn("delegation.max_spawn_depth: 2", warning_text)
+        self.assertEqual(mock_child._delegate_role, "leaf")
 
     # ── Role-aware system prompt ────────────────────────────────────────
 
