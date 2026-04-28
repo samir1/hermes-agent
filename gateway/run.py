@@ -1087,29 +1087,118 @@ Final response: send Samir the complete inbox-cleanup report and state clearly
 that no email actions were taken.
 """.strip()
 
+    def _load_lightweight_inbox_cleanup_runner(self):
+        """Load the deterministic inbox cleanup runner without importing the skill as a package."""
+        import importlib.util
+
+        runner_path = _hermes_home / "skills/openclaw-imports/inbox-cleanup/scripts/lightweight_cleanup_run.py"
+        if not runner_path.exists():
+            raise FileNotFoundError(str(runner_path))
+        spec = importlib.util.spec_from_file_location("hermes_lightweight_cleanup_run", runner_path)
+        if not spec or not spec.loader:
+            raise RuntimeError(f"could not load inbox cleanup runner from {runner_path}")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    def _sanitize_inbox_cleanup_message(self, message: Any) -> str:
+        """Redact local implementation details before delivering direct-runner output."""
+        text = str(message)
+        text = re.sub(r"(?is)Traceback \(most recent call last\):.*?(?=\n\n|\Z)", "[redacted traceback]", text)
+        secret_key = r"[A-Z0-9_]*(?:TOKEN|SECRET|PASSWORD|API[_-]?KEY|KEYRING)[A-Z0-9_]*"
+        text = re.sub(
+            rf"(?i)\b({secret_key})\s*[:=]\s*(['\"])[^'\"\n]*\2",
+            r"\1=[redacted]",
+            text,
+        )
+        text = re.sub(
+            rf"(?i)\b({secret_key})\s*[:=]\s*[^\n,;]+",
+            r"\1=[redacted]",
+            text,
+        )
+        text = re.sub(
+            r"(?<![\w@])/(?:Users|var|private|tmp|opt|System|Library|Volumes|Applications|home|etc|usr)/[^\n]*",
+            "[redacted path]",
+            text,
+        )
+        text = re.sub(r"(?i)\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]{12,}", r"\1 [redacted]", text)
+        return text
+
+    async def _run_inbox_cleanup_fast_path_direct(self, source: SessionSource, task_id: str) -> None:
+        """Run deterministic read-only inbox cleanup and deliver messages to the chat."""
+        adapter = self.adapters.get(source.platform)
+        if not adapter:
+            logger.warning("No adapter for platform %s in inbox cleanup task %s", source.platform, task_id)
+            return
+        thread_metadata = {"thread_id": source.thread_id} if source.thread_id else None
+
+        if not hasattr(self, "_inbox_cleanup_fast_path_lock"):
+            self._inbox_cleanup_fast_path_lock = asyncio.Lock()
+
+        if self._inbox_cleanup_fast_path_lock.locked():
+            await adapter.send(
+                chat_id=source.chat_id,
+                content="Inbox cleanup is already running. I’ll finish that scan before starting another one.",
+                metadata=thread_metadata,
+            )
+            return
+
+        async with self._inbox_cleanup_fast_path_lock:
+            started = time.monotonic()
+            try:
+                def run_sync():
+                    runner = self._load_lightweight_inbox_cleanup_runner()
+                    return runner.run_lightweight_cleanup()
+
+                result = await self._run_in_executor_with_context(run_sync)
+                elapsed = time.monotonic() - started
+                messages = result.get("messages") or []
+                if not messages:
+                    messages = ["Inbox cleanup finished, but no report was generated. No email actions were taken."]
+                for idx, message in enumerate(messages, start=1):
+                    safe_message = self._sanitize_inbox_cleanup_message(message)
+                    suffix = "" if len(messages) == 1 else f"\n\n({idx}/{len(messages)})"
+                    await adapter.send(
+                        chat_id=source.chat_id,
+                        content=f"{safe_message}{suffix}",
+                        metadata=thread_metadata,
+                    )
+                logger.info(
+                    "plain-text fast path: deterministic inbox cleanup complete task=%s elapsed=%.2fs messages=%s",
+                    task_id,
+                    elapsed,
+                    len(messages),
+                )
+            except Exception:
+                logger.exception("Deterministic inbox cleanup fast path failed task=%s", task_id)
+                await adapter.send(
+                    chat_id=source.chat_id,
+                    content="❌ Inbox cleanup failed before any email actions were taken. I logged the internal error details.",
+                    metadata=thread_metadata,
+                )
+
     async def _handle_inbox_cleanup_fast_path(self, event: MessageEvent) -> str:
-        """Start inbox cleanup in a clean background agent before main-session load."""
+        """Start deterministic inbox cleanup before any main-session load/compression."""
         source = event.source
         task_id = f"inbox_cleanup_{datetime.now().strftime('%H%M%S')}_{os.urandom(3).hex()}"
-        prompt = self._build_inbox_cleanup_fast_path_prompt()
 
         if not hasattr(self, "_background_tasks") or self._background_tasks is None:
             self._background_tasks = set()
 
-        task = asyncio.create_task(self._run_background_task(prompt, source, task_id))
+        task = asyncio.create_task(self._run_inbox_cleanup_fast_path_direct(source, task_id))
         self._background_tasks.add(task)
         task.add_done_callback(self._background_tasks.discard)
 
         logger.info(
-            "plain-text fast path: started inbox cleanup coordinator task=%s platform=%s chat=%s",
+            "plain-text fast path: started deterministic inbox cleanup task=%s platform=%s chat=%s",
             task_id,
             source.platform.value if source and source.platform else "unknown",
             source.chat_id if source else "unknown",
         )
         return (
-            "I’m scanning all 4 inboxes now, read-only, with one worker per mailbox. "
-            "This started in a clean background coordinator, bypassing the current "
-            "chat history and compression path. I’ll send the cleanup report when it’s ready."
+            "I’m scanning all 4 inboxes now, read-only. This is the direct fast path, "
+            "so it bypassed the main agent, current chat history, context compression, "
+            "and summarization. I’ll send the cleanup report when it’s ready."
         )
 
     def _resolve_session_agent_runtime(
@@ -3418,9 +3507,9 @@ that no email actions were taken.
                 return f"✓ Sent `{label}` to the update process."
 
         # Built-in plain-text fast paths. These bypass the active session
-        # transcript and agent preflight compression, then start a clean
-        # background coordinator for long-running workflows. Keep this after
-        # auth and /update-prompt handling, but before the active-agent guard.
+        # transcript and agent preflight compression before starting their
+        # lightweight background work. Keep this after auth and /update-prompt
+        # handling, but before the active-agent guard.
         if self._is_inbox_cleanup_fast_path_request(event):
             if self._draining:
                 return f"⏳ Gateway is {self._status_action_gerund()} and is not accepting new work right now."
