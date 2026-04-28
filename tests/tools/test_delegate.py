@@ -578,9 +578,9 @@ class TestBlockedTools(unittest.TestCase):
             _get_max_spawn_depth, _get_orchestrator_enabled,
             _MIN_SPAWN_DEPTH, _MAX_SPAWN_DEPTH_CAP,
         )
-        self.assertEqual(_get_max_concurrent_children(), 3)
-        self.assertEqual(MAX_DEPTH, 1)
-        self.assertEqual(_get_max_spawn_depth(), 1)       # default: flat
+        self.assertEqual(_get_max_concurrent_children(), 4)
+        self.assertEqual(MAX_DEPTH, 2)
+        self.assertEqual(_get_max_spawn_depth(), 2)       # default: orchestrator→leaf fanout
         self.assertTrue(_get_orchestrator_enabled())      # default
         self.assertEqual(_MIN_SPAWN_DEPTH, 1)
         self.assertEqual(_MAX_SPAWN_DEPTH_CAP, 3)
@@ -1664,10 +1664,10 @@ class TestConcurrencyDefaults(unittest.TestCase):
     """Tests for the concurrency default and no hard ceiling."""
 
     @patch("tools.delegate_tool._load_config", return_value={})
-    def test_default_is_three(self, mock_cfg):
+    def test_default_is_four(self, mock_cfg):
         # Clear env var if set
         with patch.dict(os.environ, {}, clear=True):
-            self.assertEqual(_get_max_concurrent_children(), 3)
+            self.assertEqual(_get_max_concurrent_children(), 4)
 
     @patch("tools.delegate_tool._load_config",
            return_value={"max_concurrent_children": 10})
@@ -1705,9 +1705,9 @@ class TestMaxSpawnDepth(unittest.TestCase):
     """Tests for _get_max_spawn_depth clamping and fallback behavior."""
 
     @patch("tools.delegate_tool._load_config", return_value={})
-    def test_max_spawn_depth_defaults_to_1(self, mock_cfg):
+    def test_max_spawn_depth_defaults_to_2(self, mock_cfg):
         from tools.delegate_tool import _get_max_spawn_depth
-        self.assertEqual(_get_max_spawn_depth(), 1)
+        self.assertEqual(_get_max_spawn_depth(), 2)
 
     @patch("tools.delegate_tool._load_config",
            return_value={"max_spawn_depth": 0})
@@ -1733,7 +1733,7 @@ class TestMaxSpawnDepth(unittest.TestCase):
            return_value={"max_spawn_depth": "not-a-number"})
     def test_max_spawn_depth_invalid_falls_back_to_default(self, mock_cfg):
         from tools.delegate_tool import _get_max_spawn_depth
-        self.assertEqual(_get_max_spawn_depth(), 1)
+        self.assertEqual(_get_max_spawn_depth(), 2)
 
 
 # =========================================================================
@@ -1804,13 +1804,13 @@ class TestOrchestratorRoleSchema(unittest.TestCase):
         self.assertIn("role", task_props)
         self.assertEqual(task_props["role"]["enum"], ["leaf", "orchestrator"])
 
-    def test_schema_documents_actual_flat_depth_default(self):
+    def test_schema_documents_actual_depth_default(self):
         """Model-facing help must match the runtime max_spawn_depth default."""
         from tools.delegate_tool import DELEGATE_TASK_SCHEMA
         description = DELEGATE_TASK_SCHEMA["description"]
-        self.assertIn("max_spawn_depth default is 1", description)
-        self.assertIn("Set delegation.max_spawn_depth: 2", description)
-        self.assertNotIn("default 2", description)
+        self.assertIn("max_spawn_depth default is 2", description)
+        self.assertIn("can spawn leaf workers", description)
+        self.assertNotIn("max_spawn_depth default is 1", description)
 
 
 # Sentinel used to distinguish "role kwarg omitted" from "role=None".
@@ -1848,8 +1848,7 @@ class TestOrchestratorRoleBehavior(unittest.TestCase):
     ):
         """role='orchestrator' + depth-0 parent with max_spawn_depth=2 →
         child at depth 1 gets 'delegation' in enabled_toolsets (can
-        further delegate).  Requires max_spawn_depth>=2 since the new
-        default is 1 (flat)."""
+        further delegate).  This is the default spawn-depth shape."""
         mock_creds.return_value = {
             "provider": None, "base_url": None,
             "api_key": None, "api_mode": None, "model": None,
@@ -1888,13 +1887,12 @@ class TestOrchestratorRoleBehavior(unittest.TestCase):
 
     @patch("tools.delegate_tool._resolve_delegation_credentials")
     @patch("tools.delegate_tool._load_config", return_value={})
-    def test_orchestrator_blocked_at_default_flat_depth(
+    def test_orchestrator_enabled_at_default_depth(
         self, mock_cfg, mock_creds
     ):
-        """With default max_spawn_depth=1 (flat), role='orchestrator'
-        on a depth-0 parent produces a depth-1 child that is already at
-        the floor — the role degrades to 'leaf' and the delegation
-        toolset is stripped.  This is the new default posture."""
+        """With default max_spawn_depth=2, role='orchestrator'
+        on a depth-0 parent produces a depth-1 child that can launch
+        leaf workers, so the delegation toolset is retained."""
         mock_creds.return_value = {
             "provider": None, "base_url": None,
             "api_key": None, "api_mode": None, "model": None,
@@ -1906,8 +1904,8 @@ class TestOrchestratorRoleBehavior(unittest.TestCase):
             MockAgent.return_value = mock_child
             delegate_task(goal="test", role="orchestrator", parent_agent=parent)
             kwargs = MockAgent.call_args[1]
-            self.assertNotIn("delegation", kwargs["enabled_toolsets"])
-            self.assertEqual(mock_child._delegate_role, "leaf")
+            self.assertIn("delegation", kwargs["enabled_toolsets"])
+            self.assertEqual(mock_child._delegate_role, "orchestrator")
 
     @patch("tools.delegate_tool._resolve_delegation_credentials")
     def test_orchestrator_enabled_false_forces_leaf(self, mock_creds):
@@ -2009,8 +2007,8 @@ class TestOrchestratorRoleBehavior(unittest.TestCase):
         """Per-task role beats top-level; no top-level role → "leaf".
 
         tasks=[{role:'orchestrator'},{role:'leaf'},{}] → first gets
-        delegation, second and third don't.  Requires max_spawn_depth>=2
-        (raised explicitly here) since the new default is 1 (flat).
+        delegation, second and third don't.  This is the default
+        max_spawn_depth shape.
         """
         mock_creds.return_value = {
             "provider": None, "base_url": None,
