@@ -106,7 +106,7 @@ Read these before every investigation step. Violating them invalidates the repor
 
 ## Phase 2: Parallel Evidence Collection
 
-Spawn up to 5 specialist investigator sub-agents using `delegate_task` (batch mode, max 3 concurrent). Each investigator has a **single data source** and must not mix sources.
+Spawn up to 5 specialist investigator sub-agents using `delegate_task` (batch mode, 4 concurrent by default). Each investigator has a **single data source** and must not mix sources.
 
 > **Orchestrator note**: Pass the IOC list from Phase 1 and the investigation time window in the `context` field of each delegated task.
 
